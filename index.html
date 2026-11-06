@@ -1,45 +1,32 @@
 <!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f7f8fa">
-  <meta name="description" content="공연 예매의 순간을 미리 연습하세요. 가상 공연장의 구역과 좌석 선택, 선점 경쟁을 연습하는 티케팅 시뮬레이터.">
-  <title>첫열 · 티케팅 연습실</title>
-  <link rel="stylesheet" href="/styles.css">
-  <script type="module" src="/app.js"></script>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="NOL·인터파크와 YES24의 PC 예매 흐름을 연습하는 독립 시뮬레이터. 날짜, 좌석, 할인, 수령, 가상 결제까지 연습하세요.">
+  <title>첫열 · 예매처별 PC 티케팅 연습</title>
+  <link rel="stylesheet" href="/styles.css"><script type="module" src="/app.js"></script>
 </head>
-<body>
-  <header class="header"><a class="brand" href="/" aria-label="첫열 홈"><span class="brand-icon">↗</span> 첫열<span class="brand-tag">TICKETING LAB</span></a><nav aria-label="주 메뉴"><button class="nav-item active" data-view="practice">티케팅 연습</button><button class="nav-item" data-view="history">내 연습 기록 <span id="history-count">0</span></button></nav><span class="header-note"><i></i> 매일, 첫열에 가까워지는 연습</span></header>
+<body data-provider="nol">
+  <header class="site-header"><a class="brand" href="/"><span>↗</span> 첫열 <small>TICKETING PRACTICE</small></a><nav><button data-view="practice" class="active">예매 실전 연습</button><button data-view="history">연습 기록 <span id="history-count">0</span></button></nav><span class="practice-pill">독립적인 연습 서비스</span></header>
   <main>
-    <section class="intro"><div><p class="eyebrow">YOUR NEXT FRONT ROW</p><h1>좋은 자리는, 연습에서 시작돼요.</h1><p class="intro-copy">망설이는 순간은 줄이고, 원하는 좌석에 한 걸음 더 가까이.</p></div><div class="intro-ticket"><span>ADMIT ONE</span><strong>연습은 무제한.<br>다음 기회는 내 자리.</strong><span class="ticket-star">✳</span><div class="ticket-dashes"></div><span class="ticket-code">PRACTICE → CONFIDENCE</span></div></section>
+    <section class="intro"><p class="eyebrow">PC TICKETING SIMULATOR</p><h1>그 예매창, 미리 익숙해지세요.</h1><p>예매처를 고르고, 날짜 선택부터 결제 직전까지 실전처럼 연습하세요.</p></section>
     <section id="practice-view">
-      <div class="section-heading"><h2>나만의 예매 리허설</h2><span class="sample-badge">가상 공연장 · PC 예매 흐름</span></div>
-      <div class="workspace">
-        <aside class="settings card">
-          <div class="card-heading"><span class="number">01</span><h3>연습 설정</h3></div>
-          <div class="event-poster" aria-hidden="true"><div class="poster-orbit"></div><span>THE MOMENT<br>BEFORE THE MUSIC</span><strong>FRONT<br>ROW<span>2026</span></strong><div class="poster-bottom">SEOUL LIVE ARENA <span>LIVE CONCERT</span></div></div>
-          <h3 class="event-title">FRONT ROW : THE LIVE</h3><p class="muted event-sub">서울 라이브 아레나 · 가상 공연</p>
-          <label for="performance">공연 일시</label><select id="performance"><option value="2026-12-12T18:00">2026.12.12 (토) 오후 6:00</option><option value="2026-12-13T17:00">2026.12.13 (일) 오후 5:00</option></select>
-          <label id="difficulty-label">경쟁 난이도</label><div class="segmented" role="group" aria-labelledby="difficulty-label"><button data-difficulty="easy">가볍게</button><button data-difficulty="normal" class="selected" aria-pressed="true">실전처럼</button><button data-difficulty="hard">치열하게</button></div><p class="field-help" id="difficulty-help">좌석이 실시간으로 줄어들고, 선점에 실패할 수 있어요.</p>
-          <label for="quantity">예매 매수</label><select id="quantity"><option value="1">1매 · 한 자리 집중하기</option><option value="2">2매 · 붙어 있는 자리 찾기</option></select>
-          <div class="setting-divider"></div><div class="setting-note"><span>↳</span><p>실제 예매·결제 없이<br>좌석을 잡는 순간에만 집중해요.</p></div>
-        </aside>
-        <section class="booking card" aria-label="예매 시뮬레이터">
-          <div class="booking-top"><div><span class="live-label"><i></i> PRACTICE ROOM</span><h3 id="booking-title">공연장을 미리 둘러보세요</h3></div><div class="timer"><span>진행 시간</span><strong id="timer">00:00.0</strong></div></div>
-          <ol class="steps" aria-label="예매 단계"><li class="current" id="step-ready"><span>1</span>예매 시작</li><li id="step-seats"><span>2</span>좌석 선택</li><li id="step-result"><span>3</span>결과 확인</li></ol>
-          <div id="simulation-status" class="status-message" role="status" aria-live="polite">구역을 눌러 좌석을 둘러본 뒤, 준비되면 연습을 시작하세요.</div>
-          <div class="map-toolbar"><div><strong id="map-title">전체 구역</strong><span id="available-count"></span></div><div><button id="back-to-zones" class="text-button" hidden>← 전체 구역</button><button id="cancel-practice" class="text-button" hidden>연습 중단</button></div></div>
-          <div id="map" class="map" aria-label="공연장 좌석 배치"></div>
-          <div class="legend"><span><i class="legend-vip"></i>VIP 154,000원</span><span><i class="legend-r"></i>R 132,000원</span><span><i class="legend-selected"></i>선택</span><span><i class="legend-taken"></i>선점됨</span></div>
-          <div class="booking-footer"><div><span class="muted" id="selection-caption">선택한 좌석</span><strong id="selection-text">아직 선택한 좌석이 없어요</strong></div><button class="primary" id="action-button">연습 시작 <span>↗</span></button></div>
-        </section>
-      </div>
-      <section class="tips"><div class="tip-title"><span>✦</span><h3>오늘의 연습 포인트</h3></div><article><span>01 / 미리 정하기</span><p>원하는 구역과 대안 구역을<br>시작 전에 정해두세요.</p></article><article><span>02 / 빠르게 전환하기</span><p>선점된 좌석은 잊고<br>다음 후보를 선택해보세요.</p></article><article><span>03 / 반복해서 익히기</span><p>기록을 보며 나만의<br>선택 속도를 만들어가세요.</p></article></section>
+      <div class="provider-tabs" role="group" aria-label="예매처 선택"><button data-provider="nol" class="selected" aria-pressed="true"><strong>NOL 티켓</strong><span>구 인터파크 · PC형</span><i>↗</i></button><button data-provider="yes24" aria-pressed="false"><strong>YES24 티켓</strong><span>예스24 · PC형</span><i>↗</i></button></div>
+      <div class="practice-settings"><strong>연습 설정</strong><label>경쟁 난이도 <select id="difficulty"><option value="easy">가볍게</option><option value="normal" selected>실전처럼</option><option value="hard">치열하게</option></select></label><label>목표 매수 <select id="quantity"><option value="1">1매</option><option value="2">2매</option></select></label><label class="check"><input id="use-queue" type="checkbox" checked> 대기열</label><label class="check"><input id="use-captcha" type="checkbox" checked> 보안문자</label><label class="check"><input id="adjacent" type="checkbox"> 연석만 선택</label></div>
+      <section class="product-page">
+        <div class="product-nav"><strong id="product-brand">NOL 티켓</strong><span>콘서트</span><span>뮤지컬</span><span>연극</span><span>클래식</span><span>전시 / 행사</span><small>PC 예매 연습 화면</small></div>
+        <div class="product-heading"><p><span class="sale-tag">단독판매</span> <span class="training-tag">연습용 가상 공연</span></p><h2>2026 FRONT ROW : THE LIVE</h2><p class="product-sub">가상 공연 · 서울 라이브 아레나</p></div>
+        <div class="product-layout"><div class="product-poster" aria-hidden="true"><span>THE MOMENT<br>BEFORE THE MUSIC</span><div class="poster-ring"></div><strong>FRONT<br>ROW</strong><small>2026 LIVE CONCERT<br>SEOUL LIVE ARENA</small></div><dl class="product-info"><div><dt>장소</dt><dd>서울 라이브 아레나 <span class="gray">(가상)</span></dd></div><div><dt>공연기간</dt><dd>2026.12.12 ~ 2026.12.13</dd></div><div><dt>공연시간</dt><dd>120분</dd></div><div><dt>관람연령</dt><dd>만 7세 이상</dd></div><div><dt>가격</dt><dd><b>VIP석</b> 154,000원<br><b>R석</b> 132,000원</dd></div><div><dt>예매 안내</dt><dd>회차당 최대 2매 · 수수료 없는 가상 예매<br><span class="gray">실제 티켓이 발급되지 않습니다.</span></dd></div></dl><aside class="date-card"><h3>관람일 선택</h3><div id="product-calendar"></div><h3>회차 선택</h3><button class="session-option selected" id="product-session">1회 · 18:00</button><p class="date-summary" id="date-summary"></p><button class="book-button" id="book-button">예매하기</button><p class="date-note">3초 후 연습용 PC 예매창이 열립니다.</p></aside></div>
+        <div class="product-bottom"><strong>예매 전 확인하세요</strong><p>화면 배치와 예매 순서를 연습하는 PC형 재현입니다. 공연별 UI, 대기 방식, 보안 절차는 실제 서비스와 다를 수 있습니다.</p><p>NOL·인터파크형과 YES24형은 단계명, 좌석 화면 배치, 버튼 구성에 차이가 있습니다. 좌석도와 경쟁·대기 시간은 연습용입니다.</p></div>
+      </section>
+      <div class="howto"><article><span>01</span><strong>예매처 고르기</strong><p>익숙해지고 싶은 PC형 예매창을 선택하세요.</p></article><article><span>02</span><strong>끝까지 연습하기</strong><p>날짜 → 좌석 → 할인 → 수령 → 가상 결제.</p></article><article><span>03</span><strong>기록 확인하기</strong><p>좌석 확보 시간과 전체 완료 시간을 비교하세요.</p></article></div>
     </section>
-    <section id="history-view" hidden><div class="section-heading"><h2>내 연습 기록</h2><button id="clear-history" class="text-button">기록 지우기</button></div><div class="card history-card" id="history-list"></div><p class="field-help">기록은 이 브라우저에만 저장돼요. 진행 중인 연습은 새로고침하면 초기화됩니다.</p></section>
-    <footer>첫열 <span>작은 연습이 만드는, 커다란 순간.</span><span>독립적인 연습 서비스 · 실제 예매처 및 공연장과 무관합니다.</span></footer>
+    <section id="history-view" hidden><div class="section-heading"><h2>내 연습 기록</h2><button id="clear-history" class="plain-button">기록 지우기</button></div><div id="history-list" class="history-list"></div><p class="gray">최근 30회 기록은 이 브라우저에 저장됩니다.</p></section>
+    <footer><b>첫열</b><span>실제 예매처와 무관한 독립 연습 서비스</span><a href="https://m.ticket.yes24.com/UserGuide/Booking?type=booking" target="_blank" rel="noreferrer">YES24 공개 예매안내 ↗</a><a href="https://help.interpark.com/ticket" target="_blank" rel="noreferrer">NOL 고객센터 ↗</a></footer>
   </main>
-  <dialog id="result-dialog" aria-labelledby="result-title"><button class="dialog-close" id="close-result" aria-label="결과 창 닫기">×</button><p class="eyebrow">YOUR PRACTICE REPORT</p><div class="result-icon">↗</div><h2 id="result-title">내 자리를 찾았어요!</h2><p id="result-description"></p><div class="result-stats"><div><span>총 소요 시간</span><strong id="result-time"></strong></div><div><span>선점 실패</span><strong id="result-failures"></strong></div><div><span>첫 좌석 클릭</span><strong id="result-first"></strong></div></div><p class="result-tip" id="result-tip"></p><button id="retry" class="primary">한 번 더 연습하기 ↗</button></dialog>
-</body>
-</html>
+  <dialog id="booking-dialog" aria-labelledby="window-title">
+    <div class="window-top"><strong id="window-title">NOL 티켓 · 예매 연습</strong><span>실제 결제 없음</span><button id="close-booking" aria-label="예매 연습 중단">×</button></div>
+    <div id="window-content"></div>
+  </dialog>
+  <dialog id="result-dialog" aria-labelledby="result-title"><button class="result-close" id="close-result" aria-label="결과 창 닫기">×</button><p class="eyebrow">PRACTICE COMPLETE</p><div class="result-icon">↗</div><h2 id="result-title"></h2><p id="result-description"></p><div class="result-stats"><div><span>좌석 확보</span><strong id="result-seat-time"></strong></div><div><span>전체 완료</span><strong id="result-time"></strong></div><div><span>선점 실패</span><strong id="result-failures"></strong></div></div><p id="result-tip"></p><button class="book-button" id="retry">같은 예매처로 다시 연습</button></dialog>
+</body></html>

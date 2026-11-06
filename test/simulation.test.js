@@ -35,3 +35,11 @@ test('sold out detection distinguishes singles from contiguous pairs', () => {
  taken.delete('D-8-11');
  assert.equal(hasAvailability(seats, taken, 2), true);
 });
+test('provider practice permits scattered seats unless adjacent training is requested', () => {
+ const seats = createSeats(); const taken = new Set(seats.map(s => s.id));
+ taken.delete('A-1-2'); taken.delete('E-8-12');
+ assert.equal(validSelection(['A-1-2', 'E-8-12'], seats, taken, 2, false), true);
+ assert.equal(validSelection(['A-1-2', 'E-8-12'], seats, taken, 2, true), false);
+ assert.equal(hasAvailability(seats, taken, 2, false), true);
+ assert.equal(hasAvailability(seats, taken, 2, true), false);
+});
