@@ -1,0 +1,19 @@
+{
+  "name": "ticketing-practice",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/serve.mjs",
+    "start": "node scripts/serve.mjs",
+    "test": "node --test",
+    "test:browser": "node scripts/browser-check.mjs",
+    "check": "node --check app.js && node --check lib/simulation.js && node --check scripts/serve.mjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "playwright": "^1.65.0"
+  }
+}

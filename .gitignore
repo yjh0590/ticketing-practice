@@ -4,6 +4,7 @@ node_modules/
 dist/
 build/
 coverage/
+artifacts/
 
 # Local configuration and credentials
 .env
