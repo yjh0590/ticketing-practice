@@ -33,10 +33,15 @@ const paymentAccount = id => ({ card: ['카드사', '연습 카드 (가상)'], b
 function readHistory() {
   try {
     const records = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(records) ? records.filter(r => r && Number.isFinite(r.elapsed) && typeof r.seats === 'string' && typeof r.date === 'string' && Object.hasOwn(difficulties, r.difficulty)).slice(0, 30) : [];
+    return Array.isArray(records) ? records.filter(r => r && Number.isFinite(r.elapsed) && typeof r.seats === 'string' && typeof r.date === 'string' && Object.hasOwn(difficulties, r.difficulty)).slice(0, 30).map(r => ({ ...r, id: UUID.test(r.id) ? r.id : crypto.randomUUID() })) : [];
   } catch { return []; }
 }
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 let history = readHistory();
+let sync = null, user = null;
+function saveHistory() { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); return true; } catch { return false; } }
+const syncStatus = text => { $('sync-status').textContent = text; };
+const syncFailed = () => syncStatus('클라우드 동기화에 실패했습니다. 기록은 이 브라우저에 남아 있습니다.');
 function clearTimers() { clearInterval(clock); clearInterval(competitors); clearInterval(queueTimer); }
 function setSettingsLocked(locked) {
   document.querySelectorAll('.practice-settings input,.practice-settings select,button[data-provider]').forEach(el => { el.disabled = locked; });
@@ -276,9 +281,9 @@ function previous() {
 }
 function finish(success) {
   clearTimers(); const elapsed = performance.now() - state.started;
-  const record = { date: new Date().toISOString(), elapsed, seatTime: state.seatTime, seats: selectedSeats().map(seatLabel).join(' / ') || '좌석 소진', provider: state.provider, performance: state.date, difficulty: state.difficulty, failures: state.failures, firstClick: state.firstClick, success, amount: success ? total() : 0 };
-  history.unshift(record); history = history.slice(0, 30); let saved = true;
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(history)); } catch { saved = false; }
+  const record = { id: crypto.randomUUID(), date: new Date().toISOString(), elapsed, seatTime: state.seatTime, seats: selectedSeats().map(seatLabel).join(' / ') || '좌석 소진', provider: state.provider, performance: state.date, difficulty: state.difficulty, failures: state.failures, firstClick: state.firstClick, success, amount: success ? total() : 0 };
+  history.unshift(record); history = history.slice(0, 30); const saved = saveHistory();
+  if (user) sync.push(record).then(() => syncStatus('기록이 계정에 저장되었습니다.'), syncFailed);
   $('booking-dialog').close(); state.phase = 'idle'; state.holdStarted = null; setSettingsLocked(false); $('book-button').textContent = bookLabel();
   $('result-title').textContent = success ? '예매 흐름을 끝까지 완주했어요!' : '좌석이 모두 소진됐어요';
   $('result-description').textContent = `${provider().name} · ${record.seats}`;
@@ -308,7 +313,7 @@ document.addEventListener('click', ev => {
     else { state.message = `최대 ${state.quantity}매까지 선택할 수 있습니다. 기존 좌석을 해제해주세요.`; renderWindow(); return; }
     state.message = state.adjacent && state.selected.length === state.quantity && !selectionValid() ? '연석 연습에서는 같은 구역·같은 열의 붙어 있는 좌석을 선택해주세요.' : ''; renderWindow();
   }
-  const actions = { 'book-button': start, 'close-booking': cancel, 'cancel-queue': cancel, 'next-step': next, 'previous-step': previous, 'all-sections': () => { if (state.phase === 'booking') { state.section = null; renderWindow(); } }, 'refresh-seats': () => { if (state.phase === 'booking') { state.selected = state.selected.filter(id => !state.taken.has(id)); state.message = '현재 잔여좌석으로 갱신했습니다.'; renderWindow(); } }, 'refresh-captcha': () => { newCaptcha(); state.captchaError = ''; renderWindow(); }, 'close-result': () => $('result-dialog').close(), retry: () => { $('result-dialog').close(); start(); }, 'clear-history': () => { if (!history.length || !window.confirm('연습 기록을 모두 지울까요?')) return; try { localStorage.removeItem(STORAGE_KEY); } catch { window.alert('저장소 접근이 제한되어 기록을 지우지 못했습니다.'); return; } history = []; renderHistory(); } };
+  const actions = { 'book-button': start, 'close-booking': cancel, 'cancel-queue': cancel, 'next-step': next, 'previous-step': previous, 'all-sections': () => { if (state.phase === 'booking') { state.section = null; renderWindow(); } }, 'refresh-seats': () => { if (state.phase === 'booking') { state.selected = state.selected.filter(id => !state.taken.has(id)); state.message = '현재 잔여좌석으로 갱신했습니다.'; renderWindow(); } }, 'refresh-captcha': () => { newCaptcha(); state.captchaError = ''; renderWindow(); }, 'close-result': () => $('result-dialog').close(), retry: () => { $('result-dialog').close(); start(); }, 'clear-history': () => { if (!history.length || !window.confirm('연습 기록을 모두 지울까요?')) return; try { localStorage.removeItem(STORAGE_KEY); } catch { window.alert('저장소 접근이 제한되어 기록을 지우지 못했습니다.'); return; } history = []; renderHistory(); if (user) sync.clear().then(() => syncStatus('계정의 기록도 지웠습니다.'), syncFailed); } };
   actions[target.id]?.();
 });
 document.addEventListener('change', ev => {
@@ -335,4 +340,31 @@ document.addEventListener('submit', ev => {
 });
 $('booking-dialog').addEventListener('cancel', ev => { ev.preventDefault(); cancel(); });
 window.addEventListener('pagehide', clearTimers);
-renderTabs(); renderProduct(); renderHistory();
+// Account sync is optional: without /config.js values the app stays fully local.
+async function onUser(next) {
+  user = next;
+  $('account-button').textContent = user ? '로그아웃' : '로그인';
+  $('account-email').textContent = user?.email || '';
+  if (!user) { syncStatus('로그인하면 기록이 계정에 저장되어 다른 기기에서도 볼 수 있습니다.'); return; }
+  syncStatus('계정 기록과 동기화하는 중…');
+  try { history = await sync.merge(history); saveHistory(); renderHistory(); syncStatus(`${user.email} 계정과 동기화되었습니다.`); } catch { syncFailed(); }
+}
+async function initSync() {
+  try {
+    const { supabaseConfig } = await import('./config.js');
+    if (!supabaseConfig) return;
+    sync = (await import('./lib/sync.js')).createSync(supabaseConfig);
+    $('account-button').hidden = false; sync.onAuth(onUser);
+  } catch { sync = null; }
+}
+$('account-button').addEventListener('click', () => {
+  if (user) { sync.signOut().catch(syncFailed); return; }
+  $('login-message').textContent = ''; $('login-dialog').showModal(); $('login-email').focus();
+});
+$('login-form').addEventListener('submit', async ev => {
+  ev.preventDefault(); if (ev.submitter?.value === 'cancel') { $('login-dialog').close(); return; }
+  const email = $('login-email').value.trim(); $('login-message').textContent = '로그인 링크를 보내는 중…';
+  try { await sync.signIn(email); $('login-message').textContent = `${email}로 로그인 링크를 보냈습니다. 메일의 링크를 열면 로그인됩니다.`; }
+  catch (error) { $('login-message').textContent = `링크를 보내지 못했습니다. ${error.message || ''}`.trim(); }
+});
+renderTabs(); renderProduct(); renderHistory(); initSync();

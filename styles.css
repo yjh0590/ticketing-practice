@@ -164,3 +164,17 @@ body[data-event=play] .poster-ring{border-color:#c98f86;box-shadow:0 0 0 16px #8
 @media(max-width:540px){.option-card{grid-template-columns:auto 1fr;grid-template-areas:"radio name" "radio price" "radio stock"}
 .ballpark .stage{top:122px;width:50px;height:50px;left:calc(50% - 25px)}
 }
+
+/* Account sync */
+.account{display:flex;align-items:center;gap:10px}
+.account small{font-size:10px;color:#8f899f;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-button{border:1px solid #d9d6ea;background:#fff;color:var(--site-accent);border-radius:6px;padding:7px 12px;font-size:11px;font-weight:700;white-space:nowrap}
+#login-dialog{border:1px solid #e1deef;border-radius:13px;width:420px;max-width:calc(100% - 30px);padding:30px}
+.login-box h2{font-size:19px;margin-bottom:10px}
+.login-box>p{font-size:11px;color:#8f95a1;line-height:1.8}
+.login-box label{display:block;font-size:11px;font-weight:700;margin:16px 0 6px}
+.login-box input{width:100%;padding:11px;border:1px solid #cdd2dd;border-radius:6px;font-size:13px}
+.login-message{min-height:18px;margin:10px 0 0!important;color:var(--site-accent)!important}
+.login-actions{display:flex;gap:8px;margin-top:16px}
+.login-actions .book-button{flex:1;background:var(--site-accent);padding:12px;font-size:13px}
+@media(max-width:760px){.account small{display:none}.account-button{padding:6px 9px;font-size:10px}}

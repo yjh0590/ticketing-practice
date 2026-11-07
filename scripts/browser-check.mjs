@@ -4,7 +4,7 @@ import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const port = 5198;
-const server = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: String(port) }, stdio: 'pipe', windowsHide: true });
+const server = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: String(port), SUPABASE_URL: '', SUPABASE_ANON_KEY: '' }, stdio: 'pipe', windowsHide: true });
 let browser;
 const stepKind = page => page.locator('.booking-main').getAttribute('data-step-kind');
 const currentStep = page => page.evaluate(() => [...document.querySelectorAll('.booking-steps li')].findIndex(li => li.classList.contains('current')));
@@ -225,6 +225,8 @@ try {
   await denied.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
   await denied.goto(`http://127.0.0.1:${port}`);
   assert.equal(await denied.locator('button[data-provider]').count(), 13);
+  assert.equal(await denied.locator('#account-button').isHidden(), true, 'login hidden without Supabase config');
+  assert.match(await (await fetch(`http://127.0.0.1:${port}/config.js`)).text(), /supabaseConfig = null/);
   for (const path of ['/.git/config', '/package.json', '/app.js/../../.git/config']) assert.equal((await fetch(`http://127.0.0.1:${port}${path}`)).status, 404);
   assert.deepEqual(errors, []);
   console.log('PASS: all 13 provider flows (membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, mobile, blocked storage');
