@@ -6,7 +6,7 @@ import { clientConfig } from './config.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 try { process.loadEnvFile(resolve(root, '.env.local')); } catch {}
 const types = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
-const allowed = new Set(['/index.html', '/styles.css', '/app.js', '/lib/simulation.js', '/lib/providers.js', '/lib/sync.js']);
+const allowed = new Set(['/index.html', '/styles.css', '/app.js', '/lib/simulation.js', '/lib/venues.js', '/lib/providers.js', '/lib/sync.js']);
 const headers = type => ({ 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
 createServer(async (request, response) => {
   try {

@@ -11,13 +11,14 @@ const currentStep = page => page.evaluate(() => [...document.querySelectorAll('.
 // Walks any provider flow to the result dialog, running per-step checks along the way.
 async function completeFlow(page, id, checks = {}) {
   await page.click(`button[data-provider="${id}"]`);
+  if (checks.venue) await page.selectOption('#venue', checks.venue);
   await page.click('#book-button'); await page.waitForSelector('#next-step');
   await checks.start?.(page);
   for (let guard = 0; guard < 10; guard++) {
     const kind = await stepKind(page), index = await currentStep(page);
     if (kind === 'seats') {
       if (checks.pick) await checks.pick(page);
-      else { await page.click('.zone[data-zone="D"]'); await page.click('[data-seat="D-8-11"]'); }
+      else { await page.click('.zone[data-zone="D"] text'); await page.click('[data-seat="D-8-11"]'); }
     }
     if (kind === 'option') { assert.equal(await page.locator('#next-step').isDisabled(), true, `${id} option required`); await page.locator('input[name="option"]').first().check(); }
     if (kind === 'fanclub') {
@@ -68,7 +69,7 @@ try {
   await page.fill('#captcha-input', captcha.toLowerCase());
   await page.press('#captcha-input', 'Enter');
   await page.waitForSelector('.captcha-overlay', { state: 'detached' });
-  await page.click('.zone[data-zone="D"]');
+  await page.click('.zone[data-zone="D"] text');
   assert.equal(await page.locator('[data-seat]').count(), 96);
   const nolControls = await page.locator('.seat-controls').boundingBox();
   const nolMap = await page.locator('.seat-map-area').boundingBox();
@@ -109,7 +110,7 @@ try {
   await page.selectOption('#difficulty', 'easy');
   await page.selectOption('#quantity', '2'); await page.check('#adjacent');
   await page.click('#book-button'); await page.waitForSelector('#next-step');
-  await page.click('#next-step'); await page.click('.zone[data-zone="D"]');
+  await page.click('#next-step'); await page.click('.zone[data-zone="D"] text');
   const yesControls = await page.locator('.seat-controls').boundingBox(); const yesMap = await page.locator('.seat-map-area').boundingBox();
   assert.ok(yesControls.x < yesMap.x);
   await page.click('[data-seat="D-8-9"]'); await page.click('[data-seat="D-8-11"]');
@@ -159,12 +160,12 @@ try {
     start: async p => assert.equal(await p.locator('#booking-dialog').getAttribute('data-skin'), 'weverse'),
     date: async p => { assert.equal(await p.locator('#booking-dialog').getAttribute('data-skin'), 'nol'); assert.match(await p.locator('#window-title').textContent(), /NOL 티켓.*Weverse.*선예매/); },
   });
-  const ballpark = async p => { assert.equal(await p.locator('.venue-overview.ballpark').count(), 1); await p.click('.zone[data-zone="B1"]'); await p.click('[data-seat="B1-8-11"]'); };
+  const ballpark = async p => { assert.equal(await p.locator('.venue-overview.ballpark').count(), 1); await p.click('.zone[data-zone="B1"] text'); await p.click('[data-seat="B1-8-11"]'); };
   // SSG: mixed grades in one payment (table + cheering seats).
   await page.click('button[data-provider="ssg"]'); await page.selectOption('#quantity', '2');
   await completeFlow(page, 'ssg', {
     date: async p => assert.match(await p.locator('.date-cards').textContent(), /03\.27/),
-    pick: async p => { await p.click('.zone[data-zone="T1"]'); await p.click('[data-seat="T1-4-1"]'); await p.click('#all-sections'); await p.click('.zone[data-zone="B1"]'); await p.click('[data-seat="B1-8-11"]'); },
+    pick: async p => { await p.click('.zone[data-zone="T1"] text'); await p.click('[data-seat="T1-4-1"]'); await p.click('#all-sections'); await p.click('.zone[data-zone="B1"] text'); await p.click('[data-seat="B1-8-11"]'); },
     price: async p => { assert.match(await p.locator('.price-table').textContent(), /테이블석.*응원석/); assert.match(await p.locator('.summary-total').textContent(), /63,000/); },
   });
   await page.selectOption('#quantity', '1');
@@ -194,7 +195,7 @@ try {
   // A failure after clicking seat completion must return to the seat step.
   await page.selectOption('#difficulty', 'normal'); await page.selectOption('#quantity', '1');
   await page.click('#book-button'); await page.waitForSelector('#next-step');
-  await page.click('#next-step'); await page.click('.zone[data-zone="D"]');
+  await page.click('#next-step'); await page.click('.zone[data-zone="D"] text');
   await page.click('[data-seat="D-8-11"]'); await page.evaluate(() => { Math.random = () => .01; });
   await page.click('#next-step');
   await page.waitForFunction(() => document.getElementById('seat-message')?.textContent.includes('이미 선택된'));
@@ -207,6 +208,30 @@ try {
   await page.waitForSelector('#booking-dialog[open]');
   await page.keyboard.press('Escape');
   assert.equal(await page.locator('#difficulty').isEnabled(), true);
+  // Real-venue layouts: each draws its own SVG map, and a zone opens that section's seat grid.
+  await page.selectOption('#difficulty', 'easy'); await page.evaluate(() => { Math.random = () => .9; });
+  for (const [id, venue, zone, seat, count, name] of [
+    ['nol', 'kspo', '38', '38-6-11', 72, /KSPO DOME/], ['yes24', 'sejong', '3A', '3A-7-13', 98, /세종문화회관/],
+    ['ssg', 'landers', 'OFR', 'OFR-8-13', 112, /랜더스필드/], ['lotte', 'sajik', 'OR', 'OR-8-15', 128, /사직야구장/],
+  ]) {
+    await completeFlow(page, id, {
+      venue, start: async p => assert.match(await p.locator('.summary-show').textContent(), name),
+      pick: async p => {
+        assert.ok(await p.locator('.venue-overview .zone').count() > 10, `${venue} draws its zones`);
+        await p.screenshot({ path: `artifacts/venue-${venue}.png` });
+        await p.click(`.zone[data-zone="${zone}"] text`); assert.equal(await p.locator('[data-seat]').count(), count, `${venue}/${zone} seats`); await p.click(`[data-seat="${seat}"]`);
+      },
+    });
+  }
+  await page.selectOption('#venue', 'ballpark');
+  assert.equal(await page.locator('#venue option').count(), 5);
+  await page.click('button[data-provider="timeticket"]'); assert.equal(await page.locator('#venue-label').isHidden(), true, 'auto-assign providers keep their venue');
+  // Keyboard: a focused zone opens with Enter.
+  await page.click('button[data-provider="nol"]'); await page.selectOption('#venue', 'arena');
+  await page.click('#book-button'); await page.waitForSelector('#next-step'); await page.click('#next-step');
+  await page.focus('.zone[data-zone="B"]'); await page.keyboard.press('Enter');
+  assert.equal(await page.locator('[data-seat]').count(), 96);
+  await page.click('#close-booking');
   const mobile = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   mobile.on('pageerror', error => errors.push(error.message));
   await mobile.goto(`http://127.0.0.1:${port}`);
@@ -214,7 +239,7 @@ try {
   await mobile.screenshot({ path: 'artifacts/mobile.png', fullPage: true });
   await mobile.uncheck('#use-queue'); await mobile.uncheck('#use-captcha');
   await mobile.click('#book-button'); await mobile.waitForSelector('#next-step'); await mobile.click('#next-step');
-  await mobile.click('.zone[data-zone="D"]');
+  await mobile.click('.zone[data-zone="D"] text');
   assert.equal(await mobile.locator('[data-seat]').count(), 96);
   assert.equal(await mobile.locator('#booking-dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
   await mobile.click('#close-booking');
@@ -229,5 +254,5 @@ try {
   assert.match(await (await fetch(`http://127.0.0.1:${port}/config.js`)).text(), /supabaseConfig = null/);
   for (const path of ['/.git/config', '/package.json', '/app.js/../../.git/config']) assert.equal((await fetch(`http://127.0.0.1:${port}${path}`)).status, 404);
   assert.deepEqual(errors, []);
-  console.log('PASS: all 13 provider flows (membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, mobile, blocked storage');
+  console.log('PASS: all 13 provider flows (membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, real-venue maps, zone keyboard access, mobile, blocked storage');
 } finally { await browser?.close(); server.kill(); }

@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSeats, validSelection, compete, hasAvailability, autoAssign, demandPrice, venues } from '../lib/simulation.js';
 import { providers, events, seatStep, gateStep } from '../lib/providers.js';
+import { venueGroups, shapePoints, shapeCenter } from '../lib/venues.js';
 test('venue has unique seats and performance exclusions', () => {
  const seats = createSeats(() => .5);
  assert.equal(seats.length, 480);
@@ -50,6 +51,22 @@ test('every venue has unique seat ids and free reserved seats', () => {
   assert.equal(new Set(seats.map(s => s.id)).size, seats.length, place.id);
   for (const id of place.reserved) assert.ok(seats.some(s => s.id === id && !s.excluded), id);
   for (const section of place.sections) assert.ok(place.grades[section.grade], section.id);
+  assert.equal(new Set(place.sections.map(s => s.id)).size, place.sections.length, place.id);
+  assert.equal(validSelection(place.reserved, seats, new Set(), 2, true), true, `${place.id} reserved pair is adjacent`);
+ }
+});
+test('every venue map fits the 400x300 drawing and each zone label sits on its zone', () => {
+ for (const place of Object.values(venues)) for (const section of place.sections) {
+  assert.ok(!section.id.includes('-'), `${section.id} would break seat ids`);
+  for (const [x, y] of shapePoints(section.shape)) assert.ok(x >= 0 && x <= 400 && y >= 0 && y <= 300, `${place.id}/${section.id} at ${x},${y}`);
+  const [x, y] = shapeCenter(section.shape), xs = shapePoints(section.shape).map(p => p[0]), ys = shapePoints(section.shape).map(p => p[1]);
+  assert.ok(x >= Math.min(...xs) && x <= Math.max(...xs) && y >= Math.min(...ys) && y <= Math.max(...ys), `${place.id}/${section.id} label`);
+ }
+});
+test('venue choices exist for every event type', () => {
+ for (const [type, ids] of Object.entries(venueGroups)) {
+  assert.equal(ids[0], events[type].venue, `${type} default stays the original practice venue`);
+  for (const id of ids) assert.ok(venues[id], id);
  }
 });
 test('auto assignment stays inside the product pool and respects adjacency', () => {
