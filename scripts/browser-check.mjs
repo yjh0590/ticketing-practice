@@ -6,6 +6,27 @@ import { chromium } from 'playwright';
 const port = 5198;
 const server = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: String(port) }, stdio: 'pipe', windowsHide: true });
 let browser;
+const stepKind = page => page.locator('.booking-main').getAttribute('data-step-kind');
+const currentStep = page => page.evaluate(() => [...document.querySelectorAll('.booking-steps li')].findIndex(li => li.classList.contains('current')));
+// Walks any provider flow to the result dialog, running per-step checks along the way.
+async function completeFlow(page, id, checks = {}) {
+  await page.click(`button[data-provider="${id}"]`);
+  await page.click('#book-button'); await page.waitForSelector('#next-step');
+  await checks.start?.(page);
+  for (let guard = 0; guard < 10; guard++) {
+    const kind = await stepKind(page), index = await currentStep(page);
+    if (kind === 'seats') { await page.click('.zone[data-zone="D"]'); await page.click('[data-seat="D-8-11"]'); }
+    const box = { membership: '#access-confirm', handoff: '#access-confirm', review: '#review-confirm', payment: '#payment-agreement' }[kind];
+    if (box) { assert.equal(await page.locator('#next-step').isDisabled(), true, `${id} ${kind} requires confirmation`); await page.check(box); }
+    await checks[kind]?.(page);
+    await page.click('#next-step');
+    if (kind === 'payment') { await page.waitForSelector('#result-dialog[open]'); await page.click('#close-result'); return; }
+    await page.waitForFunction(i => [...document.querySelectorAll('.booking-steps li')].findIndex(li => li.classList.contains('current')) !== i, index);
+  }
+  throw new Error(`${id} flow did not reach payment`);
+}
+const dialogBox = page => page.locator('#booking-dialog').boundingBox();
+const methods = page => page.locator('.payment-options').textContent();
 try {
   await new Promise((resolve, reject) => { server.stdout.once('data', resolve); server.once('error', reject); server.once('exit', code => reject(new Error(`Preview exited: ${code}`))); });
   browser = await chromium.launch({ channel: process.env.BROWSER_CHANNEL || 'msedge', headless: true });
@@ -91,6 +112,37 @@ try {
   await page.waitForSelector('#result-dialog[open]');
   assert.match(await page.locator('#result-description').textContent(), /YES24/);
   await page.click('#close-result');
+  // Remaining providers: flow-specific steps, layouts and payment methods.
+  await page.selectOption('#difficulty', 'easy'); await page.selectOption('#quantity', '1'); await page.uncheck('#adjacent');
+  await page.evaluate(() => { Math.random = () => .9; });
+  await completeFlow(page, 'ticketlink', {
+    seats: async p => { const c = await p.locator('.seat-controls').boundingBox(), m = await p.locator('.seat-map-area').boundingBox(); assert.ok(c.x < m.x, 'ticketlink zone list on the left'); },
+    payment: async p => assert.match(await methods(p), /PAYCO/),
+  });
+  await completeFlow(page, 'melon', {
+    seats: async p => { const c = await p.locator('.seat-controls').boundingBox(), m = await p.locator('.seat-map-area').boundingBox(); assert.ok(c.y + c.height <= m.y + 1, 'melon zone list above the map'); },
+    price: async p => assert.equal(await p.locator('.coupon-box').count(), 1),
+  });
+  await completeFlow(page, 'coupang', {
+    start: async p => { assert.ok((await dialogBox(p)).width <= 440, 'coupang uses a phone-sized window'); assert.equal(await p.locator('.booking-steps li').count(), 5); },
+    date: async p => assert.equal(await p.locator('.date-cards button').count(), 2),
+    review: async p => assert.match(await p.locator('.summary-info').textContent(), /모바일 티켓/),
+    payment: async p => { assert.match(await methods(p), /쿠페이/); await p.screenshot({ path: 'artifacts/coupang-payment.png' }); },
+  });
+  await completeFlow(page, 'naver', {
+    start: async p => assert.equal(await p.locator('.booking-steps li').count(), 4),
+    payment: async p => assert.match(await methods(p), /Npay/),
+  });
+  await completeFlow(page, 'kream', {
+    start: async p => { assert.equal(await p.locator('#booking-dialog').getAttribute('data-skin'), 'kream'); assert.equal(await p.locator('.booking-steps li').count(), 6); },
+    date: async p => { assert.equal(await p.locator('#booking-dialog').getAttribute('data-skin'), 'ticketlink'); assert.match(await p.locator('#window-title').textContent(), /ticketlink.*KREAM/); },
+    seats: async p => p.screenshot({ path: 'artifacts/kream-partner-seats.png' }),
+  });
+  assert.match(await page.locator('#result-description').textContent(), /KREAM/);
+  await page.click('[data-view="history"]');
+  assert.equal(await page.locator('.history-row').count(), 7);
+  await page.click('[data-view="practice"]');
+  await page.click('button[data-provider="yes24"]');
   // A failure after clicking seat completion must return to the seat step.
   await page.selectOption('#difficulty', 'normal'); await page.selectOption('#quantity', '1');
   await page.click('#book-button'); await page.waitForSelector('#next-step');
@@ -117,11 +169,15 @@ try {
   await mobile.click('.zone[data-zone="D"]');
   assert.equal(await mobile.locator('[data-seat]').count(), 96);
   assert.equal(await mobile.locator('#booking-dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+  await mobile.click('#close-booking');
+  await mobile.click('button[data-provider="coupang"]'); await mobile.click('#book-button'); await mobile.waitForSelector('#access-confirm');
+  assert.equal(await mobile.locator('#booking-dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
+  await mobile.screenshot({ path: 'artifacts/mobile-coupang.png' });
   const denied = await browser.newPage();
   await denied.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
   await denied.goto(`http://127.0.0.1:${port}`);
-  assert.equal(await denied.locator('button[data-provider]').count(), 2);
+  assert.equal(await denied.locator('button[data-provider]').count(), 7);
   for (const path of ['/.git/config', '/package.json', '/app.js/../../.git/config']) assert.equal((await fetch(`http://127.0.0.1:${port}${path}`)).status, 404);
   assert.deepEqual(errors, []);
-  console.log('PASS: both provider flows, queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, mobile, blocked storage');
+  console.log('PASS: all 7 provider flows (membership, handoff, review steps), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, mobile, blocked storage');
 } finally { await browser?.close(); server.kill(); }

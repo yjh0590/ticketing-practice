@@ -2,24 +2,26 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="description" content="NOL·인터파크와 YES24의 PC 예매 흐름을 연습하는 독립 시뮬레이터. 날짜, 좌석, 할인, 수령, 가상 결제까지 연습하세요.">
-  <title>첫열 · 예매처별 PC 티케팅 연습</title>
+  <meta name="description" content="NOL·인터파크, YES24, 티켓링크, 멜론티켓, 쿠팡플레이, 네이버 예약, KREAM의 예매 흐름을 연습하는 독립 시뮬레이터.">
+  <title>첫열 · 7개 예매처 티케팅 연습</title>
   <link rel="stylesheet" href="/styles.css"><script type="module" src="/app.js"></script>
 </head>
 <body data-provider="nol">
   <header class="site-header"><a class="brand" href="/"><span>↗</span> 첫열 <small>TICKETING PRACTICE</small></a><nav><button data-view="practice" class="active">예매 실전 연습</button><button data-view="history">연습 기록 <span id="history-count">0</span></button></nav><span class="practice-pill">독립적인 연습 서비스</span></header>
   <main>
-    <section class="intro"><p class="eyebrow">PC TICKETING SIMULATOR</p><h1>그 예매창, 미리 익숙해지세요.</h1><p>예매처를 고르고, 날짜 선택부터 결제 직전까지 실전처럼 연습하세요.</p></section>
+    <section class="intro"><p class="eyebrow">7 PLATFORMS · ONE PRACTICE ROOM</p><h1>그 예매창, 미리 익숙해지세요.</h1><p>PC 예매창부터 앱·예약·제휴 예매까지. 익숙해지고 싶은 흐름을 골라보세요.</p></section>
     <section id="practice-view">
-      <div class="provider-tabs" role="group" aria-label="예매처 선택"><button data-provider="nol" class="selected" aria-pressed="true"><strong>NOL 티켓</strong><span>구 인터파크 · PC형</span><i>↗</i></button><button data-provider="yes24" aria-pressed="false"><strong>YES24 티켓</strong><span>예스24 · PC형</span><i>↗</i></button></div>
+      <div class="provider-heading"><h2>예매처 선택 <span>7</span></h2><p>예매처별 공개 안내를 참고한 연습용 재현</p></div>
+      <div class="provider-tabs" id="provider-tabs" role="group" aria-label="예매처 선택"></div>
+      <div class="provider-description"><span id="provider-kind"></span><p id="provider-description"></p><a id="provider-source" target="_blank" rel="noreferrer">공개 안내 ↗</a></div>
       <div class="practice-settings"><strong>연습 설정</strong><label>경쟁 난이도 <select id="difficulty"><option value="easy">가볍게</option><option value="normal" selected>실전처럼</option><option value="hard">치열하게</option></select></label><label>목표 매수 <select id="quantity"><option value="1">1매</option><option value="2">2매</option></select></label><label class="check"><input id="use-queue" type="checkbox" checked> 대기열</label><label class="check"><input id="use-captcha" type="checkbox" checked> 보안문자</label><label class="check"><input id="adjacent" type="checkbox"> 연석만 선택</label></div>
       <section class="product-page">
-        <div class="product-nav"><strong id="product-brand">NOL 티켓</strong><span>콘서트</span><span>뮤지컬</span><span>연극</span><span>클래식</span><span>전시 / 행사</span><small>PC 예매 연습 화면</small></div>
+        <div class="product-nav"><strong id="product-brand">NOL 티켓</strong><span>콘서트</span><span>뮤지컬</span><span>연극</span><span>클래식</span><span>전시 / 행사</span><small id="product-mode">PC형 예매 연습 화면</small></div>
         <div class="product-heading"><p><span class="sale-tag">단독판매</span> <span class="training-tag">연습용 가상 공연</span></p><h2>2026 FRONT ROW : THE LIVE</h2><p class="product-sub">가상 공연 · 서울 라이브 아레나</p></div>
-        <div class="product-layout"><div class="product-poster" aria-hidden="true"><span>THE MOMENT<br>BEFORE THE MUSIC</span><div class="poster-ring"></div><strong>FRONT<br>ROW</strong><small>2026 LIVE CONCERT<br>SEOUL LIVE ARENA</small></div><dl class="product-info"><div><dt>장소</dt><dd>서울 라이브 아레나 <span class="gray">(가상)</span></dd></div><div><dt>공연기간</dt><dd>2026.12.12 ~ 2026.12.13</dd></div><div><dt>공연시간</dt><dd>120분</dd></div><div><dt>관람연령</dt><dd>만 7세 이상</dd></div><div><dt>가격</dt><dd><b>VIP석</b> 154,000원<br><b>R석</b> 132,000원</dd></div><div><dt>예매 안내</dt><dd>회차당 최대 2매 · 수수료 없는 가상 예매<br><span class="gray">실제 티켓이 발급되지 않습니다.</span></dd></div></dl><aside class="date-card"><h3>관람일 선택</h3><div id="product-calendar"></div><h3>회차 선택</h3><button class="session-option selected" id="product-session">1회 · 18:00</button><p class="date-summary" id="date-summary"></p><button class="book-button" id="book-button">예매하기</button><p class="date-note">3초 후 연습용 PC 예매창이 열립니다.</p></aside></div>
-        <div class="product-bottom"><strong>예매 전 확인하세요</strong><p>화면 배치와 예매 순서를 연습하는 PC형 재현입니다. 공연별 UI, 대기 방식, 보안 절차는 실제 서비스와 다를 수 있습니다.</p><p>NOL·인터파크형과 YES24형은 단계명, 좌석 화면 배치, 버튼 구성에 차이가 있습니다. 좌석도와 경쟁·대기 시간은 연습용입니다.</p></div>
+        <div class="product-layout"><div class="product-poster" aria-hidden="true"><span>THE MOMENT<br>BEFORE THE MUSIC</span><div class="poster-ring"></div><strong>FRONT<br>ROW</strong><small>2026 LIVE CONCERT<br>SEOUL LIVE ARENA</small></div><dl class="product-info"><div><dt>장소</dt><dd>서울 라이브 아레나 <span class="gray">(가상)</span></dd></div><div><dt>공연기간</dt><dd>2026.12.12 ~ 2026.12.13</dd></div><div><dt>공연시간</dt><dd>120분</dd></div><div><dt>관람연령</dt><dd>만 7세 이상</dd></div><div><dt>가격</dt><dd><b>VIP석</b> 154,000원<br><b>R석</b> 132,000원</dd></div><div><dt>예매 안내</dt><dd>회차당 최대 2매 · 수수료 없는 가상 예매<br><span class="gray">실제 티켓이 발급되지 않습니다.</span></dd></div></dl><aside class="date-card"><h3>관람일 선택</h3><div id="product-calendar"></div><h3>회차 선택</h3><button class="session-option selected" id="product-session">1회 · 18:00</button><p class="date-summary" id="date-summary"></p><button class="book-button" id="book-button">예매하기</button><p class="date-note" id="date-note">3초 후 연습용 예매창이 열립니다.</p></aside></div>
+        <div class="product-bottom"><strong>예매 전 확인하세요</strong><p>7개 후보 예매처의 공개 안내를 바탕으로 만든 연습 모드입니다. 최신 실제 화면과 동일한 복제본은 아닙니다.</p><p>좌석도·가격·경쟁·대기·보안 절차는 연습용이며, 이 목록은 MAU 1만 명 이상을 검증한 순위가 아닙니다.</p></div>
       </section>
-      <div class="howto"><article><span>01</span><strong>예매처 고르기</strong><p>익숙해지고 싶은 PC형 예매창을 선택하세요.</p></article><article><span>02</span><strong>끝까지 연습하기</strong><p>날짜 → 좌석 → 할인 → 수령 → 가상 결제.</p></article><article><span>03</span><strong>기록 확인하기</strong><p>좌석 확보 시간과 전체 완료 시간을 비교하세요.</p></article></div>
+      <div class="howto"><article><span>01</span><strong>예매처 고르기</strong><p>PC형·앱형·예약형·제휴형 중 익숙해지고 싶은 예매창을 선택하세요.</p></article><article><span>02</span><strong>끝까지 연습하기</strong><p id="howto-flow">날짜 → 좌석 → 할인 → 수령 → 가상 결제.</p></article><article><span>03</span><strong>기록 확인하기</strong><p>좌석 확보 시간과 전체 완료 시간을 비교하세요.</p></article></div>
     </section>
     <section id="history-view" hidden><div class="section-heading"><h2>내 연습 기록</h2><button id="clear-history" class="plain-button">기록 지우기</button></div><div id="history-list" class="history-list"></div><p class="gray">최근 30회 기록은 이 브라우저에 저장됩니다.</p></section>
     <footer><b>첫열</b><span>실제 예매처와 무관한 독립 연습 서비스</span><a href="https://m.ticket.yes24.com/UserGuide/Booking?type=booking" target="_blank" rel="noreferrer">YES24 공개 예매안내 ↗</a><a href="https://help.interpark.com/ticket" target="_blank" rel="noreferrer">NOL 고객센터 ↗</a></footer>
