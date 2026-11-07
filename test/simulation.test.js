@@ -102,3 +102,11 @@ test('provider flows are internally consistent', () => {
   if (p.flow.includes('option')) for (const o of p.options) assert.ok(o.sections.every(id => venues[events[p.event || 'concert'].venue].sections.some(s => s.id === id)), `${p.id}/${o.id}`);
  }
 });
+test('seats across an aisle are never a pair (train cars, cinema blocks)', () => {
+ const seats = createSeats(() => .5, venues.ktx), taken = new Set();
+ assert.equal(validSelection(['C1-1-1', 'C1-1-2'], seats, taken, 2, true), true);
+ assert.equal(validSelection(['C1-1-2', 'C1-1-3'], seats, taken, 2, true), false, 'B and C sit across the aisle');
+ seats.filter(s => s.section === 'C1' && s.row === 1 && s.number !== 2 && s.number !== 3).forEach(s => taken.add(s.id));
+ assert.equal(hasAvailability(seats.filter(s => s.section === 'C1' && s.row === 1), taken, 2, true), false);
+ assert.equal(venues.yongsan.seatLabel({ row: 16, number: 5 }, venues.yongsan.sections[2]), 'P열 29번');
+});

@@ -226,6 +226,20 @@ try {
   await page.selectOption('#venue', 'ballpark');
   assert.equal(await page.locator('#venue option').count(), 5);
   await page.click('button[data-provider="timeticket"]'); assert.equal(await page.locator('#venue-label').isHidden(), true, 'auto-assign providers keep their venue');
+  // Train, cinema and football providers: their own seat naming and layouts.
+  const pickSeat = (zone, seat, count, label) => async p => {
+    await p.click(`.zone[data-zone="${zone}"] text`); assert.equal(await p.locator('[data-seat]').count(), count, zone);
+    assert.equal(await p.locator(`[data-seat="${seat}"]`).getAttribute('title'), label); await p.click(`[data-seat="${seat}"]`);
+  };
+  await completeFlow(page, 'korail', {
+    date: async p => assert.match(await p.locator('#window-session').textContent(), /KTX 101/),
+    pick: async p => { assert.equal(await p.locator('.venue-overview.train .zone').count(), 8); await p.screenshot({ path: 'artifacts/venue-ktx.png' }); await pickSeat('C8', 'C8-14-3', 56, '8호차 14C')(p); assert.equal(await p.locator('.seat-grid .aisle').count(), 14); },
+    review: async p => assert.match(await p.locator('.summary-info').textContent(), /8호차 14C/),
+  });
+  await completeFlow(page, 'cgv', { venue: 'yongsan', pick: async p => { await p.screenshot({ path: 'artifacts/venue-yongsan.png' }); await pickSeat('R', 'R-16-5', 96, 'P열 29번')(p); }, price: async p => assert.match(await p.locator('.price-table').textContent(), /P열 29번.*22,000/) });
+  await page.click('button[data-provider="megabox"]'); assert.equal(await page.locator('#venue option').count(), 2);
+  await completeFlow(page, 'megabox', { pick: pickSeat('R', 'R-12-3', 48, 'L열 21번') });
+  await completeFlow(page, 'playkfa', { pick: async p => { await p.screenshot({ path: 'artifacts/venue-kfa.png' }); await pickSeat('220', '220-6-13', 84, '2층 220구역 6열 13번')(p); }, price: async p => assert.match(await p.locator('.price-table').textContent(), /레드석/) });
   // Keyboard: a focused zone opens with Enter.
   await page.click('button[data-provider="nol"]'); await page.selectOption('#venue', 'arena');
   await page.click('#book-button'); await page.waitForSelector('#next-step'); await page.click('#next-step');
@@ -249,10 +263,10 @@ try {
   const denied = await browser.newPage();
   await denied.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
   await denied.goto(`http://127.0.0.1:${port}`);
-  assert.equal(await denied.locator('button[data-provider]').count(), 13);
+  assert.equal(await denied.locator('button[data-provider]').count(), 17);
   assert.equal(await denied.locator('#account-button').isHidden(), true, 'login hidden without Supabase config');
   assert.match(await (await fetch(`http://127.0.0.1:${port}/config.js`)).text(), /supabaseConfig = null/);
   for (const path of ['/.git/config', '/package.json', '/app.js/../../.git/config']) assert.equal((await fetch(`http://127.0.0.1:${port}${path}`)).status, 404);
   assert.deepEqual(errors, []);
-  console.log('PASS: all 13 provider flows (membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, real-venue maps, zone keyboard access, mobile, blocked storage');
+  console.log('PASS: all 17 provider flows (train cars, cinema halls, A-match, membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, real-venue maps, zone keyboard access, mobile, blocked storage');
 } finally { await browser?.close(); server.kill(); }

@@ -199,3 +199,16 @@ body[data-provider=yes24] .seat.r{--seat:#6f99c9;--seat-line:#658bb7}
 .section-list{max-height:260px;overflow-y:auto;padding-right:2px}
 [data-pane=top] .section-list{max-height:112px}
 
+.vz-nose{fill:#d7dbe3}.vz-screen{fill:#c9ced8}.vz-halfway{fill:#fff;opacity:.7}
+.venue-overview.train .zone text,.venue-overview.cinema .zone text{font-size:10px}
+body[data-event=train] .product-poster,#booking-dialog[data-venue=ktx] .mini-poster{background:#0f3d7a;color:#e6f0ff}
+body[data-event=movie] .product-poster,#booking-dialog[data-venue=yongsan] .mini-poster{background:#141416;color:#f2d16b}
+body[data-event=football] .product-poster,#booking-dialog[data-venue=kfa] .mini-poster{background:#7a1020;color:#ffe3e6}
+body[data-provider=korail],#booking-dialog[data-skin=korail]{--brand:#0b4ea2;--brand-light:#eaf2fd}
+body[data-provider=cgv],#booking-dialog[data-skin=cgv]{--brand:#e71a0f;--brand-light:#fdeceb}
+body[data-provider=megabox],#booking-dialog[data-skin=megabox]{--brand:#351f66;--brand-light:#efebf7}
+body[data-provider=playkfa],#booking-dialog[data-skin=playkfa]{--brand:#c8102e;--brand-light:#fdebee}
+body[data-provider=korail] .product-nav strong{color:#0b4ea2;font:900 21px Arial}
+body[data-provider=cgv] .product-nav strong{color:#e71a0f;font:900 22px Arial}
+body[data-provider=megabox] .product-nav strong{color:#351f66;font:900 21px Arial}
+body[data-provider=playkfa] .product-nav strong{color:#c8102e;font:900 21px Arial}

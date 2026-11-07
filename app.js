@@ -8,9 +8,20 @@ let clock, competitors, queueTimer;
 const provider = () => providers[state.provider];
 const event = () => eventOf(provider());
 const eventKey = () => provider().event || 'concert';
+// Wording that depends on what is being booked (show, match, train, film).
+const TERMS = {
+  show: { day: '관람일', session: '회차', item: '1회', schedule: '관람일과 회차', tag: '연습용 가상 공연', place: '공연장', sub: '가상 공연', price: ['할인 선택', '일반 · 할인 없음', '연습용 10% 할인'] },
+  sport: { day: '경기일', session: '경기', item: '1경기', schedule: '경기 일정', tag: '연습용 가상 경기', place: '경기장', sub: '가상 경기', price: ['권종 선택', '일반', '연습용 할인 권종 (10%)'] },
+  train: { day: '출발일', session: '열차', item: '', schedule: '출발일과 열차', tag: '연습용 가상 열차', place: '열차', sub: '가상 열차', price: ['할인 선택', '어른', '연습용 할인 (10%)'] },
+  movie: { day: '관람일', session: '상영 시간', item: '', schedule: '관람일과 상영 시간', tag: '연습용 가상 상영', place: '상영관', sub: '가상 상영', price: ['관람 인원/할인', '일반', '연습용 할인 (10%)'] },
+};
+const terms = () => TERMS[event().kind || 'show'];
+const sessionText = () => `${terms().item ? `${terms().item} · ` : ''}${currentDate().time}`;
 // Auto-assign products are tied to their default venue's sections, so those providers keep it.
-const venueChoices = () => (provider().options ? [event().venue] : venueGroups[eventKey()]);
-const place = () => { const choices = venueChoices(), chosen = state.venueChoice[eventKey()]; return venues[choices.includes(chosen) ? chosen : choices[0]]; };
+const venueChoices = () => (provider().options ? [event().venue] : provider().venues || venueGroups[eventKey()]);
+// Providers with their own venue list (cinema chains) remember their choice separately.
+const venueKey = () => (provider().venues ? provider().id : eventKey());
+const place = () => { const choices = venueChoices(), chosen = state.venueChoice[venueKey()]; return venues[choices.includes(chosen) ? chosen : choices[0]]; };
 const kind = () => provider().flow[state.step];
 const seatPhase = () => ['seats', 'option'].includes(kind());
 const hasStep = name => provider().flow.includes(name);
@@ -28,7 +39,7 @@ const sectionName = s => s.name || `${s.id}구역`;
 const livePrice = seat => provider().dynamicPricing ? demandPrice(grade(seat).price, state.seats, state.taken, seat.section) : grade(seat).price;
 const price = seat => state.locked[seat.id] ?? livePrice(seat);
 const money = value => `${value.toLocaleString('ko-KR')}원`;
-const seatLabel = seat => `${section(seat.section)?.name || `${seat.section}구역`} ${seat.row}열 ${seat.number}번`;
+const seatLabel = seat => (place().seatLabel ? place().seatLabel(seat, section(seat.section)) : `${section(seat.section)?.name || `${seat.section}구역`} ${seat.row}열 ${seat.number}번`);
 const selectedSeats = () => state.selected.map(id => state.seats.find(s => s.id === id)).filter(Boolean);
 const config = () => difficulties[state.difficulty];
 const selectionValid = () => validSelection(state.selected, state.seats, state.taken, state.quantity, state.adjacent);
@@ -73,21 +84,21 @@ function renderProduct() {
   $('product-mode').textContent = `${p.kind} 예매 연습 화면`;
   $('howto-flow').textContent = `${p.steps.join(' → ')}.`;
   $('date-note').textContent = `3초 후 연습용 ${p.kind} 예매창이 열립니다.`;
-  $('event-title').textContent = e.title; $('event-sub').textContent = `${e.unit === '경기' ? '가상 경기' : '가상 공연'} · ${place().name}`;
+  $('event-title').textContent = e.title; $('event-sub').textContent = `${terms().sub} · ${place().name}`;
   [['poster-top', 0], ['poster-main', 1]].forEach(([id, i]) => { $(id).innerHTML = e.poster[i]; });
   $('poster-bottom').innerHTML = `${e.poster[2].split('<br>')[0]}<br>${place().en}`;
   const choices = venueChoices();
   $('venue').innerHTML = choices.map(id => `<option value="${id}" ${venues[id] === place() ? 'selected' : ''}>${venues[id].name}${venues[id].fictional ? ' (기본 · 가상)' : ''}</option>`).join('');
-  $('venue-label').hidden = choices.length < 2; $('venue-label-text').textContent = e.unit === '경기' ? '경기장' : '공연장';
+  $('venue-label').hidden = choices.length < 2; $('venue-label-text').textContent = terms().place;
   $('info-venue').textContent = place().name; $('info-period').textContent = e.period; $('info-duration').textContent = e.duration; $('info-age').textContent = e.age;
   $('info-price').innerHTML = Object.values(place().grades).map(g => `<b>${g.label}</b> ${money(g.price)}`).join('<br>') + (p.dynamicPricing ? '<br><span class="gray">판매율에 따라 가격 변동 (연습)</span>' : '');
   $('info-limit').textContent = `${e.unit}당 최대 ${maxQuantity()}매`;
-  $('session-heading').textContent = `${e.unit} 선택`; $('date-heading').textContent = e.unit === '경기' ? '경기일 선택' : '관람일 선택';
-  $('training-tag').textContent = e.unit === '경기' ? '연습용 가상 경기' : '연습용 가상 공연';
+  $('session-heading').textContent = `${terms().session} 선택`; $('date-heading').textContent = `${terms().day} 선택`;
+  $('training-tag').textContent = terms().tag;
   $('book-button').textContent = bookLabel();
   $('product-calendar').innerHTML = calendar(state.date, 'product', e);
   const date = currentDate();
-  $('product-session').textContent = `1${e.unit === '경기' ? '경기' : '회'} · ${date.time}`; $('date-summary').textContent = `${date.label} ${date.time}`;
+  $('product-session').textContent = sessionText(); $('date-summary').textContent = `${date.label} ${date.time}`;
   syncQuantity();
 }
 function changeDate(id) {
@@ -159,7 +170,7 @@ function renderWindow() {
   if (state.phase === 'queue') {
     content.innerHTML = `<section class="queue-screen"><span class="queue-symbol">⌛</span><h2>예매 대기 중입니다.</h2><p>접속 순서에 따라 예매창으로 자동 이동합니다.</p><div class="queue-number"><span>나의 대기순서</span><strong>${state.queue.toLocaleString()}</strong></div><progress max="824" value="${824 - state.queue}" aria-label="연습 대기열 진행"></progress><p class="gray">연습용 대기열 · 실제 대기시간과 무관합니다.</p><button id="cancel-queue" class="plain-button">연습 중단</button></section>`; return;
   }
-  content.innerHTML = `<ol class="booking-steps" style="--steps:${provider().steps.length}">${provider().steps.map((step, i) => `<li class="${i === state.step ? 'current' : i < state.step ? 'complete' : ''}" ${i === state.step ? 'aria-current="step"' : ''}><small>STEP ${i + 1}</small><strong>${step}</strong></li>`).join('')}</ol><div class="booking-body"><section class="booking-main" data-step-kind="${kind()}">${stepContent()}</section>${sidebar()}</div><div class="window-status"><span>독립 연습 화면 · ${providers[skin()].name} ${provider().kind} · 가상 ${event().venue === 'ballpark' ? '구장' : '공연장'}</span><span>진행 시간 <b data-elapsed>${seconds(state.elapsed)}</b></span></div>`;
+  content.innerHTML = `<ol class="booking-steps" style="--steps:${provider().steps.length}">${provider().steps.map((step, i) => `<li class="${i === state.step ? 'current' : i < state.step ? 'complete' : ''}" ${i === state.step ? 'aria-current="step"' : ''}><small>STEP ${i + 1}</small><strong>${step}</strong></li>`).join('')}</ol><div class="booking-body"><section class="booking-main" data-step-kind="${kind()}">${stepContent()}</section>${sidebar()}</div><div class="window-status"><span>독립 연습 화면 · ${providers[skin()].name} ${provider().kind} · 가상 ${terms().place}</span><span>진행 시간 <b data-elapsed>${seconds(state.elapsed)}</b></span></div>`;
   if (state.phase === 'captcha') renderCaptcha();
   if (focus) content.querySelector(`[data-seat="${focus}"]:not(:disabled)`)?.focus({ preventScroll: true });
 }
@@ -178,10 +189,10 @@ function dateStep() {
     : calendar(state.date, 'window', e);
   const where = ['desktop', 'partner'].includes(provider().layout) ? '오른쪽 아래' : '아래';
   const remaining = Object.entries(place().grades).map(([id, g]) => `<p><i class="dot ${g.tone}"></i> ${g.label} <b>${available().filter(s => s.grade === id).length}석</b></p>`).join('');
-  return `${title(`${e.unit === '경기' ? '경기 일정' : '관람일과 회차'}을 확인하세요.`)}<div class="date-step"><section><h3>${e.unit === '경기' ? '경기일' : '관람일'} 선택</h3>${picker}</section><section><h3>${e.unit} 선택</h3><button class="session-row selected" id="window-session">1${e.unit === '경기' ? '경기' : '회'}　${currentDate().time} <span>선택</span></button><div class="remaining-table"><h4>좌석등급 / 잔여석</h4>${remaining}</div></section></div><div class="step-notice">날짜를 선택한 후 ${where} <b>${provider().nextAction}</b>을 눌러주세요.</div>`;
+  return `${title(`${terms().schedule}을 확인하세요.`)}<div class="date-step"><section><h3>${terms().day} 선택</h3>${picker}</section><section><h3>${terms().session} 선택</h3><button class="session-row selected" id="window-session">${sessionText()} <span>선택</span></button><div class="remaining-table"><h4>좌석등급 / 잔여석</h4>${remaining}</div></section></div><div class="step-notice">날짜를 선택한 후 ${where} <b>${provider().nextAction}</b>을 눌러주세요.</div>`;
 }
 function priceStep() {
-  const label = provider().event === 'baseball' ? ['권종 선택', '일반', '연습용 할인 권종 (10%)'] : ['할인 선택', '일반 · 할인 없음', '연습용 10% 할인'];
+  const label = terms().price;
   return `${title('선택한 좌석의 가격을 확인하세요.')}<div class="form-section"><h3>가격 / 할인 선택</h3><table class="price-table"><thead><tr><th>좌석</th><th>등급</th><th>가격</th></tr></thead><tbody>${selectedSeats().map(s => `<tr><td>${seatLabel(s)}</td><td>${grade(s).label}</td><td>${money(price(s))}</td></tr>`).join('')}</tbody></table><label class="form-row">${label[0]}<select id="discount"><option value="0" ${state.discount === 0 ? 'selected' : ''}>${label[1]}</option><option value="0.1" ${state.discount === .1 ? 'selected' : ''}>${label[2]}</option></select></label>${provider().coupons ? '<div class="coupon-box"><h3>쿠폰 선택</h3><p>사용 가능한 연습 쿠폰이 없습니다.</p></div>' : '<p class="gray">할인 자격 및 금액은 연습용 예시입니다.</p>'}${provider().dynamicPricing ? '<p class="gray">좌석 선택 완료 시점의 가격으로 고정되었습니다. (연습용 다이나믹 프라이싱)</p>' : ''}<div class="price-sum">티켓 금액 합계 <strong>${money(totals().ticket - totals().discount)}</strong></div></div>`;
 }
 function deliveryStep() {
@@ -228,12 +239,18 @@ function overviewMap() {
   }).join('');
   const zones = v.sections.map(s => {
     const n = left(s.id), [x, y] = shapeCenter(s.shape), name = sectionName(s);
-    return `<g class="zone ${grade(s).tone}${n ? '' : ' soldout'}" data-zone="${s.id}" tabindex="0" role="button" aria-label="${name} ${grade(s).label} ${n}석"><title>${name} · ${grade(s).label} · ${n}석</title><path d="${shapePath(s.shape)}"/><text x="${x}" y="${y}">${s.id}</text></g>`;
+    return `<g class="zone ${grade(s).tone}${n ? '' : ' soldout'}" data-zone="${s.id}" tabindex="0" role="button" aria-label="${name} ${grade(s).label} ${n}석"><title>${name} · ${grade(s).label} · ${n}석</title><path d="${shapePath(s.shape)}"/><text x="${x}" y="${y}">${s.tag || s.id}</text></g>`;
   }).join('');
   return `<div class="venue-overview ${v.type}"><svg viewBox="0 0 400 300" role="group" aria-label="${v.name} 전체 좌석 배치도">${decor}${zones}</svg><span class="venue-name">${v.label}</span></div>`;
 }
 function detailMap(current) {
-  return `<div class="detail-map"><div class="detail-stage">${place().stage}</div><div class="seat-grid" style="--columns:${current.columns}">${Array.from({ length: current.rows }, (_, row) => `<span class="row-label">${row + 1}열</span>${state.seats.filter(s => s.section === current.id && s.row === row + 1).map(s => { const unavailable = s.excluded || state.taken.has(s.id); return `<button class="seat ${grade(s).tone} ${state.selected.includes(s.id) ? 'chosen' : ''}" data-seat="${s.id}" aria-label="${seatLabel(s)}${unavailable ? ' 선택불가' : ''}" title="${seatLabel(s)}" aria-pressed="${state.selected.includes(s.id)}" ${unavailable || state.phase !== 'booking' ? 'disabled' : ''}></button>`; }).join('')}`).join('')}</div><p class="seat-direction">왼쪽 ← 좌석 번호 → 오른쪽</p></div>`;
+  // Aisles become empty grid columns; rows/seats use the venue's own naming when it has one.
+  const aisles = current.aisles || [], rowLabel = place().rowLabel || (row => `${row}열`);
+  const rows = Array.from({ length: current.rows }, (_, row) => `<span class="row-label">${rowLabel(row + 1)}</span>${state.seats.filter(s => s.section === current.id && s.row === row + 1).map(s => {
+    const unavailable = s.excluded || state.taken.has(s.id);
+    return `<button class="seat ${grade(s).tone} ${state.selected.includes(s.id) ? 'chosen' : ''}" data-seat="${s.id}" aria-label="${seatLabel(s)}${unavailable ? ' 선택불가' : ''}" title="${seatLabel(s)}" aria-pressed="${state.selected.includes(s.id)}" ${unavailable || state.phase !== 'booking' ? 'disabled' : ''}></button>${aisles.includes(s.number) ? '<span class="aisle" aria-hidden="true"></span>' : ''}`;
+  }).join('')}`).join('');
+  return `<div class="detail-map"><div class="detail-stage">${place().stage}</div><div class="seat-grid" style="--columns:${current.columns + aisles.length}">${rows}</div><p class="seat-direction">${place().seatHint || '왼쪽 ← 좌석 번호 → 오른쪽'}</p></div>`;
 }
 function newCaptcha() { state.captcha = Array.from({ length: 6 }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.floor(Math.random() * 24)]).join(''); }
 function renderCaptcha() {
@@ -336,7 +353,7 @@ document.addEventListener('click', ev => {
 });
 document.addEventListener('change', ev => {
   const el = ev.target;
-  if (el.id === 'venue' && state.phase === 'idle') { state.venueChoice[eventKey()] = el.value; state.section = null; renderProduct(); }
+  if (el.id === 'venue' && state.phase === 'idle') { state.venueChoice[venueKey()] = el.value; state.section = null; renderProduct(); }
   if (el.id === 'discount') { state.discount = Number(el.value); renderWindow(); }
   if (el.name === 'delivery') { state.delivery = el.value; renderWindow(); }
   if (el.name === 'payment') { state.payment = el.value; state.agreed = false; renderWindow(); }
