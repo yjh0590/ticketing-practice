@@ -15,7 +15,18 @@ async function completeFlow(page, id, checks = {}) {
   await checks.start?.(page);
   for (let guard = 0; guard < 10; guard++) {
     const kind = await stepKind(page), index = await currentStep(page);
-    if (kind === 'seats') { await page.click('.zone[data-zone="D"]'); await page.click('[data-seat="D-8-11"]'); }
+    if (kind === 'seats') {
+      if (checks.pick) await checks.pick(page);
+      else { await page.click('.zone[data-zone="D"]'); await page.click('[data-seat="D-8-11"]'); }
+    }
+    if (kind === 'option') { assert.equal(await page.locator('#next-step').isDisabled(), true, `${id} option required`); await page.locator('input[name="option"]').first().check(); }
+    if (kind === 'fanclub') {
+      assert.equal(await page.locator('#next-step').isDisabled(), true, `${id} fan-club verification required`);
+      await page.fill('#member-code', 'WRONG123'); await page.press('#member-code', 'Enter');
+      await page.waitForFunction(() => document.getElementById('member-error')?.textContent.includes('일치하지'));
+      await page.fill('#member-code', (await page.locator('.member-card strong').textContent()).toLowerCase()); await page.press('#member-code', 'Enter');
+      await page.waitForSelector('.verified');
+    }
     const box = { membership: '#access-confirm', handoff: '#access-confirm', review: '#review-confirm', payment: '#payment-agreement' }[kind];
     if (box) { assert.equal(await page.locator('#next-step').isDisabled(), true, `${id} ${kind} requires confirmation`); await page.check(box); }
     await checks[kind]?.(page);
@@ -139,8 +150,45 @@ try {
     seats: async p => p.screenshot({ path: 'artifacts/kream-partner-seats.png' }),
   });
   assert.match(await page.locator('#result-description').textContent(), /KREAM/);
+  // Fan-club pre-sale: one ticket per person, NOL-type window after verification.
+  await page.selectOption('#quantity', '2');
+  await page.click('button[data-provider="weverse"]');
+  assert.equal(await page.locator('#quantity').inputValue(), '1');
+  assert.equal(await page.locator('#quantity option[value="2"]').isDisabled(), true);
+  await completeFlow(page, 'weverse', {
+    start: async p => assert.equal(await p.locator('#booking-dialog').getAttribute('data-skin'), 'weverse'),
+    date: async p => { assert.equal(await p.locator('#booking-dialog').getAttribute('data-skin'), 'nol'); assert.match(await p.locator('#window-title').textContent(), /NOL 티켓.*Weverse.*선예매/); },
+  });
+  const ballpark = async p => { assert.equal(await p.locator('.venue-overview.ballpark').count(), 1); await p.click('.zone[data-zone="B1"]'); await p.click('[data-seat="B1-8-11"]'); };
+  // SSG: mixed grades in one payment (table + cheering seats).
+  await page.click('button[data-provider="ssg"]'); await page.selectOption('#quantity', '2');
+  await completeFlow(page, 'ssg', {
+    date: async p => assert.match(await p.locator('.date-cards').textContent(), /03\.27/),
+    pick: async p => { await p.click('.zone[data-zone="T1"]'); await p.click('[data-seat="T1-4-1"]'); await p.click('#all-sections'); await p.click('.zone[data-zone="B1"]'); await p.click('[data-seat="B1-8-11"]'); },
+    price: async p => { assert.match(await p.locator('.price-table').textContent(), /테이블석.*응원석/); assert.match(await p.locator('.summary-total').textContent(), /63,000/); },
+  });
+  await page.selectOption('#quantity', '1');
+  await completeFlow(page, 'nc', {
+    start: async p => assert.ok((await dialogBox(p)).width <= 440),
+    pick: async p => { assert.match(await p.locator('.section-list').textContent(), /원/); await ballpark(p); },
+    price: async p => assert.match(await p.locator('.form-section').textContent(), /가격으로 고정/),
+    review: async p => assert.match(await p.locator('.summary-info').textContent(), /스마트 티켓/),
+    payment: async p => assert.match(await methods(p), /토스페이.*퀵계좌이체/),
+  });
+  await completeFlow(page, 'lotte', {
+    pick: async p => { const c = await p.locator('.seat-controls').boundingBox(), m = await p.locator('.seat-map-area').boundingBox(); assert.ok(c.x > m.x); await ballpark(p); },
+  });
+  // Discount products: no seat map, seats are auto-assigned from the chosen product's pool.
+  await completeFlow(page, 'timeticket', {
+    option: async p => { assert.equal(await p.locator('[data-seat]').count(), 0); assert.match(await p.locator('.option-list').textContent(), /타임특가.*40%/); },
+    review: async p => { assert.match(await p.locator('.summary-info').textContent(), /(왼쪽|오른쪽) 블록/); assert.match(await p.locator('.summary-total').textContent(), /33,000/); },
+  });
+  await completeFlow(page, 'lticket', {
+    delivery: async p => assert.match(await p.locator('.summary-info').textContent(), /R석/),
+    payment: async p => { assert.match(await p.locator('.summary-total').textContent(), /92,400/); await p.screenshot({ path: 'artifacts/lticket-payment.png' }); },
+  });
   await page.click('[data-view="history"]');
-  assert.equal(await page.locator('.history-row').count(), 7);
+  assert.equal(await page.locator('.history-row').count(), 13);
   await page.click('[data-view="practice"]');
   await page.click('button[data-provider="yes24"]');
   // A failure after clicking seat completion must return to the seat step.
@@ -176,8 +224,8 @@ try {
   const denied = await browser.newPage();
   await denied.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
   await denied.goto(`http://127.0.0.1:${port}`);
-  assert.equal(await denied.locator('button[data-provider]').count(), 7);
+  assert.equal(await denied.locator('button[data-provider]').count(), 13);
   for (const path of ['/.git/config', '/package.json', '/app.js/../../.git/config']) assert.equal((await fetch(`http://127.0.0.1:${port}${path}`)).status, 404);
   assert.deepEqual(errors, []);
-  console.log('PASS: all 7 provider flows (membership, handoff, review steps), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, mobile, blocked storage');
+  console.log('PASS: all 13 provider flows (membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, mobile, blocked storage');
 } finally { await browser?.close(); server.kill(); }

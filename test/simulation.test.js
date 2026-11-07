@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createSeats, validSelection, compete, hasAvailability } from '../lib/simulation.js';
+import { createSeats, validSelection, compete, hasAvailability, autoAssign, demandPrice, venues } from '../lib/simulation.js';
+import { providers, events, seatStep, gateStep } from '../lib/providers.js';
 test('venue has unique seats and performance exclusions', () => {
  const seats = createSeats(() => .5);
  assert.equal(seats.length, 480);
@@ -42,4 +43,45 @@ test('provider practice permits scattered seats unless adjacent training is requ
  assert.equal(validSelection(['A-1-2', 'E-8-12'], seats, taken, 2, true), false);
  assert.equal(hasAvailability(seats, taken, 2, false), true);
  assert.equal(hasAvailability(seats, taken, 2, true), false);
+});
+test('every venue has unique seat ids and free reserved seats', () => {
+ for (const place of Object.values(venues)) {
+  const seats = createSeats(() => .5, place);
+  assert.equal(new Set(seats.map(s => s.id)).size, seats.length, place.id);
+  for (const id of place.reserved) assert.ok(seats.some(s => s.id === id && !s.excluded), id);
+  for (const section of place.sections) assert.ok(place.grades[section.grade], section.id);
+ }
+});
+test('auto assignment stays inside the product pool and respects adjacency', () => {
+ const seats = createSeats(() => .5, venues.theater); const taken = new Set();
+ const single = autoAssign(seats, taken, 1, true, ['L'], () => 0);
+ assert.deepEqual(single, ['L-1-1']);
+ const pair = autoAssign(seats, taken, 2, true, ['C'], () => .999);
+ const [a, b] = pair.map(id => seats.find(s => s.id === id));
+ assert.ok(a.section === 'C' && a.row === b.row && b.number - a.number === 1);
+ const scattered = autoAssign(seats, taken, 2, false, ['L', 'R'], () => .5);
+ assert.equal(new Set(scattered).size, 2);
+ assert.ok(scattered.every(id => /^[LR]-/.test(id)));
+ seats.filter(s => s.section === 'L').forEach(s => taken.add(s.id));
+ assert.deepEqual(autoAssign(seats, taken, 1, true, ['L']), []);
+ assert.equal(hasAvailability(seats, taken, 1, true, ['L']), false);
+ assert.equal(hasAvailability(seats, taken, 1, true, ['L', 'C']), true);
+});
+test('demand pricing rises with section sales in 5% steps', () => {
+ const seats = createSeats(() => .5, venues.ballpark); const taken = new Set();
+ assert.equal(demandPrice(18000, seats, taken, 'B1'), 18000);
+ seats.filter(s => s.section === 'B1').slice(0, 48).forEach(s => taken.add(s.id));
+ assert.equal(demandPrice(18000, seats, taken, 'B1'), 19800);
+ seats.filter(s => s.section === 'B1').forEach(s => taken.add(s.id));
+ assert.equal(demandPrice(18000, seats, taken, 'B1'), 22500);
+ assert.equal(demandPrice(18000, seats, taken, 'B3'), 18000);
+});
+test('provider flows are internally consistent', () => {
+ for (const p of Object.values(providers)) {
+  assert.equal(p.steps.length, p.flow.length, p.id);
+  assert.ok(seatStep(p) > -1, p.id);
+  assert.equal(p.flow.at(-1), 'payment', p.id);
+  if (p.partner) assert.ok(providers[p.partner] && gateStep(p) > -1, p.id);
+  if (p.flow.includes('option')) for (const o of p.options) assert.ok(o.sections.every(id => venues[events[p.event || 'concert'].venue].sections.some(s => s.id === id)), `${p.id}/${o.id}`);
+ }
 });
