@@ -212,3 +212,24 @@ body[data-provider=korail] .product-nav strong{color:#0b4ea2;font:900 21px Arial
 body[data-provider=cgv] .product-nav strong{color:#e71a0f;font:900 22px Arial}
 body[data-provider=megabox] .product-nav strong{color:#351f66;font:900 21px Arial}
 body[data-provider=playkfa] .product-nav strong{color:#c8102e;font:900 21px Arial}
+body[data-provider=tlbaseball],#booking-dialog[data-skin=tlbaseball]{--brand:#f2364f;--brand-light:#fff0f2}
+body[data-provider=tlbaseball] .product-nav strong{color:#f2364f;font:800 21px Arial}
+#booking-dialog[data-skin=tlbaseball] .window-top{background:#2c2f37}
+body[data-provider=nolps],#booking-dialog[data-skin=nolps]{--brand:#e94243;--brand-light:#fff1f0}
+body[data-provider=nolps] .product-nav strong{color:#1a6dff;font:900 21px Arial}
+body[data-provider=tmoney],#booking-dialog[data-skin=tmoney]{--brand:#ff6b00;--brand-light:#fff2e8}
+body[data-provider=palace],#booking-dialog[data-skin=palace]{--brand:#3d3a8a;--brand-light:#efeefa}
+body[data-provider=qnet],#booking-dialog[data-skin=qnet]{--brand:#1f5fae;--brand-light:#eaf1fb}
+body[data-provider=course],#booking-dialog[data-skin=course]{--brand:#2b6b4f;--brand-light:#e9f4ee}
+body[data-provider=knps],#booking-dialog[data-skin=knps]{--brand:#2f7d32;--brand-light:#eaf5ea}
+body[data-provider=catchtable],#booking-dialog[data-skin=catchtable]{--brand:#ff5a36;--brand-light:#fff0eb}
+body[data-provider=seoulyeyak],#booking-dialog[data-skin=seoulyeyak]{--brand:#0067b8;--brand-light:#e8f2fb}
+body[data-provider=eplus],#booking-dialog[data-skin=eplus]{--brand:#d6001c;--brand-light:#fdeaec}
+body[data-provider=tmoney] .product-nav strong,body[data-provider=palace] .product-nav strong,body[data-provider=qnet] .product-nav strong,body[data-provider=course] .product-nav strong,body[data-provider=knps] .product-nav strong,body[data-provider=catchtable] .product-nav strong,body[data-provider=seoulyeyak] .product-nav strong,body[data-provider=eplus] .product-nav strong{color:var(--brand);font:900 20px Arial}
+body[data-event=bus] .product-poster,#booking-dialog[data-venue=busDeluxe] .mini-poster{background:#ff6b00;color:#fff6ee}
+body[data-event=palace] .product-poster,#booking-dialog[data-venue=palace] .mini-poster{background:#1c1a45;color:#f3e6b0}
+body[data-event=exam] .product-poster,body[data-event=course] .product-poster{background:#1f3550;color:#e8f0fa}
+body[data-event=park] .product-poster{background:#21452a;color:#e6f3df}
+body[data-event=dining] .product-poster{background:#2a1a12;color:#f5dcc6}
+body[data-event=court] .product-poster{background:#0b4f7a;color:#e3f3ff}
+body[data-event=japan] .product-poster{background:#d6001c;color:#fff}

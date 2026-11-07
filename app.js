@@ -13,9 +13,11 @@ const TERMS = {
   show: { day: '관람일', session: '회차', item: '1회', schedule: '관람일과 회차', tag: '연습용 가상 공연', place: '공연장', sub: '가상 공연', price: ['할인 선택', '일반 · 할인 없음', '연습용 10% 할인'] },
   sport: { day: '경기일', session: '경기', item: '1경기', schedule: '경기 일정', tag: '연습용 가상 경기', place: '경기장', sub: '가상 경기', price: ['권종 선택', '일반', '연습용 할인 권종 (10%)'] },
   train: { day: '출발일', session: '열차', item: '', schedule: '출발일과 열차', tag: '연습용 가상 열차', place: '열차', sub: '가상 열차', price: ['할인 선택', '어른', '연습용 할인 (10%)'] },
+  bus: { day: '출발일', session: '배차', item: '', schedule: '출발일과 배차', tag: '연습용 가상 배차', place: '버스', sub: '가상 배차', price: ['할인 선택', '어른', '연습용 할인 (10%)'] },
+  slot: { day: '이용일', session: '일정', item: '', schedule: '이용일', tag: '연습용 가상 일정', place: '장소', sub: '가상 일정', option: '항목', price: ['할인 선택', '일반', '연습용 할인 (10%)'] },
   movie: { day: '관람일', session: '상영 시간', item: '', schedule: '관람일과 상영 시간', tag: '연습용 가상 상영', place: '상영관', sub: '가상 상영', price: ['관람 인원/할인', '일반', '연습용 할인 (10%)'] },
 };
-const terms = () => TERMS[event().kind || 'show'];
+const terms = () => ({ option: '상품', ...TERMS[event().kind || 'show'], ...event().terms });
 const sessionText = () => `${terms().item ? `${terms().item} · ` : ''}${currentDate().time}`;
 // Auto-assign products are tied to their default venue's sections, so those providers keep it.
 const venueChoices = () => (provider().options ? [event().venue] : provider().venues || venueGroups[eventKey()]);
@@ -27,7 +29,7 @@ const seatPhase = () => ['seats', 'option'].includes(kind());
 const hasStep = name => provider().flow.includes(name);
 const bookLabel = () => provider().bookLabel || '예매하기';
 const maxQuantity = () => provider().maxQuantity || 2;
-const deliveryLabel = () => ({ venue: '현장수령', post: '배송 (가상 주소)', mobile: '모바일 티켓 (연습)', smart: '스마트 티켓 (연습)' })[state.delivery];
+const deliveryLabel = () => provider().receipt || ({ venue: '현장수령', post: '배송 (가상 주소)', mobile: '모바일 티켓 (연습)', smart: '스마트 티켓 (연습)' })[state.delivery];
 // Gate steps (partner handoff, fan-club check) switch the window to the partner's booking UI once passed.
 const skin = () => provider().partner && state.step > gateStep(provider()) ? provider().partner : provider().id;
 const windowTitle = () => skin() === provider().id ? `${provider().brand} · ${provider().kind} 예매 연습` : `${providers[skin()].brand} · ${provider().brand} ${provider().kind === '선예매형' ? '선예매' : '제휴 예매'} 연습`;
@@ -199,6 +201,7 @@ function deliveryStep() {
   return `${title('수령 방법과 예매자 정보를 확인하세요.')}<div class="form-section"><h3>티켓 수령 방법</h3><div class="radio-options"><label><input type="radio" name="delivery" value="venue" ${state.delivery === 'venue' ? 'checked' : ''}> 현장수령</label><label><input type="radio" name="delivery" value="post" ${state.delivery === 'post' ? 'checked' : ''}> 배송 · 3,500원</label></div><div class="delivery-details">${state.delivery === 'venue' ? '공연 당일 현장 티켓박스에서 수령하는 연습입니다.' : '<b>가상 배송지</b><p>서울특별시 연습구 첫열로 101 · 연습용 주소</p><span class="gray">실제 주소 입력 없이 배송 선택 순서만 연습합니다.</span>'}</div>${buyer()}</div>`;
 }
 function paymentStep() {
+  if (provider().free) return `${title('신청 내용을 확인하고 확정하세요.')}<div class="form-section"><div class="payment-banner">연습용 신청 확정 · 비용 없음</div>${summaryBox('최종 신청 확인')}${checkbox('payment-agreement', state.agreed, '위 신청 내용을 확인했으며, 연습용 신청을 확정합니다.')}</div>`;
   const [field, account] = paymentAccount(state.payment);
   return `${title('마지막 단계까지 침착하게 확인하세요.')}<div class="form-section"><div class="payment-banner">연습용 가상 결제 · 실제 청구 금액 0원</div><h3>결제수단 선택</h3><div class="payment-options">${paymentMethods(provider()).map(([id, name]) => `<label class="${state.payment === id ? 'selected' : ''}"><input type="radio" name="payment" value="${id}" ${state.payment === id ? 'checked' : ''}>${name}</label>`).join('')}</div><label class="form-row">${field}<select id="fake-payment"><option>${account}</option></select></label><p class="gray">카드번호·계좌번호·간편결제 비밀번호를 입력하지 않는 연습입니다.</p>${summaryBox('최종 예매 확인')}${checkbox('payment-agreement', state.agreed, '위 예매 정보를 확인했으며, 연습용 가상 결제에 동의합니다.')}</div>`;
 }
@@ -219,17 +222,23 @@ function reviewStep() {
   return `${title('예매 정보를 확인하세요.')}<div class="form-section">${summaryBox('예매 내용')}${buyer()}${checkbox('review-confirm', state.reviewConfirmed, '위 예매 정보를 확인했습니다.')}</div>`;
 }
 function optionStep() {
-  const cards = provider().options.map(o => {
+  const p = provider(), stock = p.stockWord || '석';
+  const cards = p.options.map(o => {
     const left = optionLeft(o), base = place().grades[section(o.sections[0]).grade].price, chosen = state.option === o.id;
-    return `<label class="option-card ${chosen ? 'selected' : ''} ${left ? '' : 'sold-out'}"><input type="radio" name="option" value="${o.id}" ${chosen ? 'checked' : ''} ${left && state.phase === 'booking' ? '' : 'disabled'}><span class="option-name"><b>${o.label}</b><small>${o.note}</small></span><span class="option-price">${o.discount ? `<s>${money(base)}</s><em>${Math.round(o.discount * 100)}%</em>` : ''}<strong>${money(Math.floor(base * (1 - o.discount)))}</strong></span><span class="option-stock">${left ? `잔여 ${left}석` : '매진'}</span></label>`;
+    const priceTag = p.free ? '<strong>신청</strong>' : `${o.discount ? `<s>${money(base)}</s><em>${Math.round(o.discount * 100)}%</em>` : ''}<strong>${money(Math.floor(base * (1 - o.discount)))}</strong>`;
+    const stockTag = p.lottery ? (left ? `잔여 약 ${left}${stock}` : '접수 마감') : left ? `잔여 ${left}${stock}` : '마감';
+    return `<label class="option-card ${chosen ? 'selected' : ''} ${left ? '' : 'sold-out'}"><input type="radio" name="option" value="${o.id}" ${chosen ? 'checked' : ''} ${left && state.phase === 'booking' ? '' : 'disabled'}><span class="option-name"><b>${o.label}</b><small>${o.note}</small></span><span class="option-price">${priceTag}</span><span class="option-stock">${stockTag}</span></label>`;
   }).join('');
-  return `${title('할인 상품을 고르면 좌석이 자동 배정됩니다.')}<div class="form-section"><div class="option-list">${cards}</div><div class="step-notice" id="seat-message" role="status">${state.message || `상품을 선택하고 ${provider().seatAction}를 누르면 ${state.quantity}매가 자동 배정됩니다.`}</div></div>`;
+  const hint = p.optionTitle || '할인 상품을 고르면 좌석이 자동 배정됩니다.';
+  const notice = p.optionTitle ? `${terms().option} 선택 후 ${p.seatAction}를 누르세요.` : `상품을 선택하고 ${p.seatAction}를 누르면 ${state.quantity}매가 자동 배정됩니다.`;
+  return `${title(hint)}<div class="form-section"><div class="option-list">${cards}</div><div class="step-notice" id="seat-message" role="status">${state.message || notice}</div></div>`;
 }
 const available = () => state.seats.filter(s => !s.excluded && !state.taken.has(s.id));
 function seatContent() {
-  const current = section(state.section);
-  const hint = `구역을 선택하고 좌석 ${state.quantity}개를 클릭한 뒤, ${provider().seatAction}를 눌러주세요.${provider().mixed ? ' 등급이 달라도 한 번에 결제할 수 있습니다 (혼합 예매).' : ''}`;
-  return `<div class="panel-title"><h2>${provider().steps[state.step]}</h2><div><span>${current ? current.name || `${current.id}구역` : '전체 좌석 배치도'}</span><button id="refresh-seats">좌석 새로고침 ↻</button></div></div><div class="seat-layout"><div class="seat-map-area">${current ? detailMap(current) : overviewMap()}<div class="map-caption"><span>${place().name} ${place().fictional ? '(가상)' : '(연습용 단순화 배치)'} · ${state.quantity}매${state.adjacent ? ' · 연석 연습' : ''}</span><span>선택 ${state.selected.length} / ${state.quantity}</span></div></div><aside class="seat-controls"><h3>좌석등급 / 잔여석</h3><div class="seat-grades">${gradeDots()}</div><h3>구역 선택</h3><div class="section-list">${place().sections.map(s => { const left = available().filter(a => a.section === s.id); const now = provider().dynamicPricing && left.length ? ` · ${money(livePrice(left[0]))}` : ''; return `<button data-zone="${s.id}" class="${s.id === state.section ? 'selected' : ''}">${s.name || `${s.id}구역`} <span>${left.length}석${now}</span></button>`; }).join('')}</div><button id="all-sections" class="map-reset">전체 배치도 보기</button><div class="seat-key"><span><i class="selected-dot"></i> 선택좌석</span><span><i class="taken-dot"></i> 선택불가</span></div></aside></div><div class="step-notice" id="seat-message" role="status">${state.message || hint}</div>`;
+  const current = section(state.section) || (place().sections.length === 1 ? place().sections[0] : null);
+  const single = place().sections.length === 1;
+  const hint = `${single ? '' : '구역을 선택하고 '}좌석 ${state.quantity}개를 클릭한 뒤, ${provider().seatAction}를 눌러주세요.${provider().mixed ? ' 등급이 달라도 한 번에 결제할 수 있습니다 (혼합 예매).' : ''}`;
+  return `<div class="panel-title"><h2>${provider().steps[state.step]}</h2><div><span>${current ? current.name || `${current.id}구역` : '전체 좌석 배치도'}</span><button id="refresh-seats">좌석 새로고침 ↻</button></div></div><div class="seat-layout"><div class="seat-map-area">${current ? detailMap(current) : overviewMap()}<div class="map-caption"><span>${place().name} ${place().fictional ? '(가상)' : '(연습용 단순화 배치)'} · ${state.quantity}매${state.adjacent ? ' · 연석 연습' : ''}</span><span>선택 ${state.selected.length} / ${state.quantity}</span></div></div><aside class="seat-controls"><h3>좌석등급 / 잔여석</h3><div class="seat-grades">${gradeDots()}</div><h3>구역 선택</h3><div class="section-list">${place().sections.map(s => { const left = available().filter(a => a.section === s.id); const now = provider().dynamicPricing && left.length ? ` · ${money(livePrice(left[0]))}` : ''; return `<button data-zone="${s.id}" class="${s.id === state.section ? 'selected' : ''}">${s.name || `${s.id}구역`} <span>${left.length}석${now}</span></button>`; }).join('')}</div>${single ? '' : '<button id="all-sections" class="map-reset">전체 배치도 보기</button>'}<div class="seat-key"><span><i class="selected-dot"></i> 선택좌석</span><span><i class="taken-dot"></i> 선택불가</span></div></aside></div><div class="step-notice" id="seat-message" role="status">${state.message || hint}</div>`;
 }
 function overviewMap() {
   const v = place(), left = id => available().filter(a => a.section === id).length;
@@ -279,14 +288,14 @@ async function confirmSeats() {
   if (kind() === 'option') {
     if (!option) return;
     state.selected = autoAssign(state.seats, state.taken, state.quantity, state.adjacent, option.sections);
-    if (!state.selected.length) { state.message = '선택한 상품이 매진되었습니다. 다른 상품을 선택해주세요.'; renderWindow(); return; }
+    if (!state.selected.length) { state.message = provider().failMessage || '선택한 상품이 매진되었습니다. 다른 상품을 선택해주세요.'; renderWindow(); return; }
   }
   if (!selectionValid()) return;
   state.phase = 'checking'; const run = state.run; renderWindow();
   await new Promise(resolve => setTimeout(resolve, config().latency));
   if (run !== state.run || state.phase !== 'checking') return;
   if (!selectionValid() || Math.random() < config().failure) {
-    const message = option ? '다른 예매자가 먼저 구매했습니다. 다시 시도해주세요.' : '이미 선택된 좌석입니다. 다른 좌석을 선택해주세요.';
+    const message = option ? provider().failMessage || '다른 예매자가 먼저 구매했습니다. 다시 시도해주세요.' : '이미 선택된 좌석입니다. 다른 좌석을 선택해주세요.';
     state.selected.forEach(id => state.taken.add(id)); state.selected = []; state.failures++; state.phase = 'booking'; state.message = message;
     renderWindow(); window.alert(message);
     if (!hasAvailability(state.seats, state.taken, state.quantity, state.adjacent)) finish(false);
