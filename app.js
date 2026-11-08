@@ -1,6 +1,6 @@
 import { venues, difficulties, createSeats, validSelection, compete, hasAvailability, autoAssign, demandPrice } from './lib/simulation.js';
 import { venueGroups, shapePath, shapeCenter } from './lib/venues.js';
-import { providers, categories, eventOf, calendar, paymentMethods, seatStep, gateStep, initialDelivery } from './lib/providers.js';
+import { providers, categories, captchaLevels, captchaNotes, eventOf, calendar, paymentMethods, seatStep, gateStep, initialDelivery } from './lib/providers.js';
 const $ = id => document.getElementById(id);
 const STORAGE_KEY = 'frontrow-history-v1';
 const state = { provider: 'nol', date: eventOf(providers.nol).dates[0].id, phase: 'idle', step: 0, section: null, selected: [], taken: new Set(), seats: [], locked: {}, run: 0, started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, captcha: '', captchaError: '', discount: 0, delivery: 'venue', payment: 'card', agreed: false, queue: 0, venueChoice: {}, category: null, picked: false };
@@ -70,25 +70,27 @@ function syncQuantity() {
   const two = $('quantity').querySelector('option[value="2"]');
   two.disabled = maxQuantity() < 2; if (two.disabled && $('quantity').value === '2') $('quantity').value = '1';
 }
-// Simple line icons for the category cards.
-const ICONS = {
-  show: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
-  baseball: '<circle cx="12" cy="12" r="9"/><path d="M6 5.8c2.2 2.6 2.2 9.8 0 12.4M18 5.8c-2.2 2.6-2.2 9.8 0 12.4"/>',
-  sports: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5l4 2.9-1.5 4.7h-5L8 10.4z"/>',
-  travel: '<path d="M3 15l18-6-18-6 3.5 6zM6.5 9H13"/><path d="M4 21h16"/>',
-  movie: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/>',
-  reserve: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h3"/>',
-  draw: '<path d="M4 7h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4z"/><path d="M14 7v12" stroke-dasharray="2 2"/>',
-};
 // Main screen: category cards first; a category opens its providers; a provider opens the practice stage.
 function renderTabs() {
   const list = Object.values(providers), current = categories.find(c => c.id === state.category);
-  $('category-chips').innerHTML = categories.map(c => `<button class="category-card glass" data-category="${c.id}" style="--tint:${c.tint}"><span class="category-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[c.id]}</svg></span><strong>${c.label}</strong><p>${c.desc}</p><small>${c.ids.slice(0, 3).map(id => providers[id].name).join(' · ')}${c.ids.length > 3 ? ' 외' : ''}</small><span class="category-count">${c.ids.length}</span></button>`).join('');
-  $('provider-tabs').innerHTML = categories.map(c => `<div class="provider-grid" data-group="${c.id}" ${c === current ? '' : 'hidden'}>${c.ids.map(id => { const p = providers[id]; return `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>↗</i></button>`; }).join('')}</div>`).join('');
+  $('category-chips').innerHTML = categories.map(c => `<button class="category-card glass" data-category="${c.id}" style="--tint:${c.tint}"><span class="category-count"><b>${c.ids.length}</b>곳</span><strong>${c.label}</strong><p>${c.desc}</p><span class="category-sites">${c.ids.map(id => `<i>${providers[id].name}</i>`).join('')}</span></button>`).join('');
+  $('provider-tabs').innerHTML = categories.map(c => `<div class="provider-grid" data-group="${c.id}" ${c === current ? '' : 'hidden'}>${c.ids.map(id => { const p = providers[id]; return `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>→</i></button>`; }).join('')}</div>`).join('');
   $('category-chips').hidden = $('menu-heading').hidden = Boolean(current);
   $('menu-category').hidden = !current; $('provider-stage').hidden = !(current && state.picked);
-  if (current) { $('menu-title').textContent = current.label; $('menu-desc').textContent = `${current.desc} · ${current.ids.length}곳`; $('menu-category').style.setProperty('--tint', current.tint); }
+  if (current) { $('menu-title').textContent = current.label; $('menu-desc').textContent = `${current.desc} · ${current.ids.length}곳`; }
   $('provider-count').textContent = $('provider-total').textContent = list.length;
+}
+// The security code defaults to what the real site does; 1 = only rare sales, so it shows up in 매크로급 only.
+function applyCaptchaDefault() {
+  const level = captchaLevels[state.provider] ?? 0, mode = document.querySelector('input[name=difficulty]:checked')?.value;
+  $('use-captcha').checked = level === 2 || (level === 1 && mode === 'hard');
+  $('captcha-note').textContent = captchaNotes[level];
+}
+// Mode picker: the same three criteria shown side by side for each mode.
+function renderModes() {
+  const top = { queue: difficulties.hard.queue, speed: difficulties.hard.batch / difficulties.hard.interval, fail: difficulties.hard.failure };
+  const bar = (name, value, text) => `<span class="mode-meter"><em>${name}</em><span><i style="width:${Math.max(6, Math.round(value * 100))}%"></i></span><b>${text}</b></span>`;
+  $('mode-picker').innerHTML = Object.entries(difficulties).map(([id, d]) => `<label class="mode-card" data-mode="${id}"><input type="radio" name="difficulty" id="mode-${id}" value="${id}" ${id === 'normal' ? 'checked' : ''}><span class="mode-head"><strong>${d.label}</strong><small>${d.desc}</small></span>${bar('대기열', d.queue / top.queue, `${d.queue.toLocaleString('ko-KR')}명`)}${bar('선점 속도', (d.batch / d.interval) / top.speed, `${(d.interval / 1000).toFixed(1)}초마다 ${d.batch}석`)}${bar('결제 실패', d.failure / top.fail, `${Math.round(d.failure * 100)}%`)}</label>`).join('');
 }
 function renderProduct() {
   const e = event(), p = provider();
@@ -133,7 +135,7 @@ function releaseHold() { state.seatTime = null; state.discount = 0; state.holdSt
 async function start() {
   if (state.phase !== 'idle') return;
   clearTimers(); state.run++;
-  Object.assign(state, { phase: 'countdown', step: 0, selected: [], message: '', started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, discount: 0, delivery: initialDelivery(provider()), payment: paymentMethods(provider())[0][0], agreed: false, accessConfirmed: false, reviewConfirmed: false, captchaPassed: false, captchaError: '', option: null, memberCode: `${provider().codePrefix || 'WV'}${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`, memberError: '', difficulty: $('difficulty').value, quantity: Math.min(Number($('quantity').value), maxQuantity()), adjacent: $('adjacent').checked });
+  Object.assign(state, { phase: 'countdown', step: 0, selected: [], message: '', started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, discount: 0, delivery: initialDelivery(provider()), payment: paymentMethods(provider())[0][0], agreed: false, accessConfirmed: false, reviewConfirmed: false, captchaPassed: false, captchaError: '', option: null, memberCode: `${provider().codePrefix || 'WV'}${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`, memberError: '', difficulty: document.querySelector('input[name=difficulty]:checked').value, quantity: Math.min(Number($('quantity').value), maxQuantity()), adjacent: $('adjacent').checked });
   setSettingsLocked(true); const run = state.run;
   for (let i = 3; i > 0; i--) { $('book-button').textContent = `${i}초 후 예매창 열림`; await new Promise(resolve => setTimeout(resolve, 1000)); if (run !== state.run) return; }
   resetSeats(); state.started = performance.now();
@@ -149,8 +151,8 @@ async function start() {
     }
   }, 100);
   if (state.phase === 'queue') {
-    const initial = { easy: 24, normal: 186, hard: 824 }[state.difficulty]; state.queue = initial; renderWindow(); let progress = 0;
-    queueTimer = setInterval(() => { if (++progress >= 5) { clearInterval(queueTimer); state.phase = 'booking'; renderWindow(); } else { state.queue = Math.ceil(initial * (1 - progress / 5)); renderWindow(); } }, 700);
+    const initial = config().queue, steps = config().queueSteps; state.queue = initial; renderWindow(); let progress = 0;
+    queueTimer = setInterval(() => { if (++progress >= steps) { clearInterval(queueTimer); state.phase = 'booking'; renderWindow(); } else { state.queue = Math.ceil(initial * (1 - progress / steps)); renderWindow(); } }, 700);
   }
 }
 function cancel() {
@@ -372,7 +374,7 @@ document.addEventListener('click', ev => {
   }
   if (target.id === 'menu-back' && state.phase === 'idle') { state.category = null; renderTabs(); renderProduct(); }
   if (target.dataset.provider && state.phase === 'idle') {
-    const first = !state.picked; state.provider = target.dataset.provider; state.picked = true; renderTabs(); renderProduct();
+    const first = !state.picked; state.provider = target.dataset.provider; state.picked = true; renderTabs(); renderProduct(); applyCaptchaDefault();
     if (first) $('provider-stage').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   if (target.dataset.view) { const practice = target.dataset.view === 'practice'; $('practice-view').hidden = !practice; $('history-view').hidden = practice; document.querySelectorAll('[data-view]').forEach(el => el.classList.toggle('active', el.dataset.view === target.dataset.view)); }
@@ -392,6 +394,7 @@ document.addEventListener('click', ev => {
 document.addEventListener('change', ev => {
   const el = ev.target;
   if (el.id === 'venue' && state.phase === 'idle') { state.venueChoice[venueKey()] = el.value; state.section = null; renderProduct(); }
+  if (el.name === 'difficulty' && state.phase === 'idle') applyCaptchaDefault();
   if (el.id === 'discount') { state.discount = Number(el.value); renderWindow(); }
   if (el.name === 'delivery') { state.delivery = el.value; renderWindow(); }
   if (el.name === 'payment') { state.payment = el.value; state.agreed = false; renderWindow(); }
@@ -446,4 +449,4 @@ $('login-form').addEventListener('submit', async ev => {
   try { await sync.signIn(email); $('login-message').textContent = `${email}로 로그인 링크를 보냈습니다. 메일의 링크를 열면 로그인됩니다.`; }
   catch (error) { $('login-message').textContent = `링크를 보내지 못했습니다. ${error.message || ''}`.trim(); }
 });
-renderTabs(); renderProduct(); renderHistory(); initSync();
+renderModes(); renderTabs(); renderProduct(); applyCaptchaDefault(); renderHistory(); initSync();

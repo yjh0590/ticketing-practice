@@ -20,8 +20,10 @@ let browser;
 const stepKind = page => page.locator('.booking-main').getAttribute('data-step-kind');
 const currentStep = page => page.evaluate(() => [...document.querySelectorAll('.booking-steps li')].findIndex(li => li.classList.contains('current')));
 // Walks any provider flow to the result dialog, running per-step checks along the way.
+const captchaDefaults = {};
 async function completeFlow(page, id, checks = {}) {
   await openProvider(page, id);
+  captchaDefaults[id] = await page.isChecked('#use-captcha'); await page.uncheck('#use-captcha');
   if (checks.venue) await page.selectOption('#venue', checks.venue);
   await page.click('#book-button'); await page.waitForSelector('#next-step');
   await checks.start?.(page);
@@ -65,7 +67,7 @@ try {
   assert.equal(await page.locator('#provider-stage').isHidden(), true);
   await openProvider(page, 'nol');
   assert.equal(await page.locator('#provider-stage').isVisible(), true);
-  await page.selectOption('#difficulty', 'easy');
+  await page.check('#mode-easy');
   await page.selectOption('#quantity', '2');
   await page.click('[data-calendar="product"][data-date="2026-12-13"]');
   assert.match(await page.locator('#product-session').textContent(), /17:00/);
@@ -122,7 +124,7 @@ try {
   await page.click('[data-view="practice"]');
   await openProvider(page, 'yes24');
   await page.uncheck('#use-queue'); await page.uncheck('#use-captcha');
-  await page.selectOption('#difficulty', 'easy');
+  await page.check('#mode-easy');
   await page.selectOption('#quantity', '2'); await page.check('#adjacent');
   await page.click('#book-button'); await page.waitForSelector('#next-step');
   await page.click('#next-step'); await page.click('.zone[data-zone="D"] text');
@@ -140,7 +142,7 @@ try {
   assert.match(await page.locator('#result-description').textContent(), /YES24/);
   await page.click('#close-result');
   // Remaining providers: flow-specific steps, layouts and payment methods.
-  await page.selectOption('#difficulty', 'easy'); await page.selectOption('#quantity', '1'); await page.uncheck('#adjacent');
+  await page.check('#mode-easy'); await page.selectOption('#quantity', '1'); await page.uncheck('#adjacent');
   await page.evaluate(() => { Math.random = () => .9; });
   await completeFlow(page, 'ticketlink', {
     seats: async p => { const c = await p.locator('.seat-controls').boundingBox(), m = await p.locator('.seat-map-area').boundingBox(); assert.ok(c.x < m.x, 'ticketlink zone list on the left'); },
@@ -208,7 +210,7 @@ try {
   await page.click('[data-view="practice"]');
   await openProvider(page, 'yes24');
   // A failure after clicking seat completion must return to the seat step.
-  await page.selectOption('#difficulty', 'normal'); await page.selectOption('#quantity', '1');
+  await page.check('#mode-normal'); await page.selectOption('#quantity', '1');
   await page.click('#book-button'); await page.waitForSelector('#next-step');
   await page.click('#next-step'); await page.click('.zone[data-zone="D"] text');
   await page.click('[data-seat="D-8-11"]'); await page.evaluate(() => { Math.random = () => .01; });
@@ -218,13 +220,13 @@ try {
   assert.ok(alerts.some(message => message.includes('이미 선택된')));
   await page.click('#close-booking');
   assert.equal(await page.locator('#booking-dialog').isVisible(), false);
-  assert.equal(await page.locator('#difficulty').isEnabled(), true);
+  assert.equal(await page.locator('#mode-easy').isEnabled(), true);
   await page.click('#book-button');
   await page.waitForSelector('#booking-dialog[open]');
   await page.keyboard.press('Escape');
-  assert.equal(await page.locator('#difficulty').isEnabled(), true);
+  assert.equal(await page.locator('#mode-easy').isEnabled(), true);
   // Real-venue layouts: each draws its own SVG map, and a zone opens that section's seat grid.
-  await page.selectOption('#difficulty', 'easy'); await page.evaluate(() => { Math.random = () => .9; });
+  await page.check('#mode-easy'); await page.evaluate(() => { Math.random = () => .9; });
   for (const [id, venue, zone, seat, count, name] of [
     ['nol', 'kspo', '38', '38-6-11', 72, /KSPO DOME/], ['yes24', 'sejong', '3A', '3A-7-13', 98, /세종문화회관/],
     ['ssg', 'landers', 'OFR', 'OFR-8-13', 112, /랜더스필드/], ['lotte', 'sajik', 'OR', 'OR-8-15', 128, /사직야구장/],
@@ -303,8 +305,14 @@ try {
   assert.match(await page.locator('#menu-title').textContent(), /야구/);
   await page.screenshot({ path: 'artifacts/category-baseball.png' });
   await page.click('#menu-back');
+  // Security code follows the real site: on for NOL/멜론/티켓링크, off for cinemas, buses, airlines and overseas sites.
+  for (const id of ['melon', 'ticketlink', 'tlbaseball']) assert.equal(captchaDefaults[id], true, id + ' shows a security code');
+  for (const id of ['cgv', 'megabox', 'korail', 'tmoney', 'jejuair', 'ticketmaster', 'qnet']) assert.equal(captchaDefaults[id], false, id + ' has no security code');
+  await openProvider(page, 'yes24'); await page.check('#mode-normal'); assert.equal(await page.isChecked('#use-captcha'), false);
+  await page.check('#mode-hard'); assert.equal(await page.isChecked('#use-captcha'), true, 'YES24 shows it only in 매크로급');
+  await page.check('#mode-easy');
   // Keyboard: a focused zone opens with Enter.
-  await openProvider(page, 'nol'); await page.selectOption('#venue', 'arena');
+  await openProvider(page, 'nol'); await page.uncheck('#use-captcha'); await page.selectOption('#venue', 'arena');
   await page.click('#book-button'); await page.waitForSelector('#next-step'); await page.click('#next-step');
   await page.focus('.zone[data-zone="B"]'); await page.keyboard.press('Enter');
   assert.equal(await page.locator('[data-seat]').count(), 96);
