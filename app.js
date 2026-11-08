@@ -1,9 +1,9 @@
 import { venues, difficulties, createSeats, validSelection, compete, hasAvailability, autoAssign, demandPrice } from './lib/simulation.js';
 import { venueGroups, shapePath, shapeCenter } from './lib/venues.js';
-import { providers, eventOf, calendar, paymentMethods, seatStep, gateStep, initialDelivery } from './lib/providers.js';
+import { providers, categories, eventOf, calendar, paymentMethods, seatStep, gateStep, initialDelivery } from './lib/providers.js';
 const $ = id => document.getElementById(id);
 const STORAGE_KEY = 'frontrow-history-v1';
-const state = { provider: 'nol', date: eventOf(providers.nol).dates[0].id, phase: 'idle', step: 0, section: null, selected: [], taken: new Set(), seats: [], locked: {}, run: 0, started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, captcha: '', captchaError: '', discount: 0, delivery: 'venue', payment: 'card', agreed: false, queue: 0, venueChoice: {} };
+const state = { provider: 'nol', date: eventOf(providers.nol).dates[0].id, phase: 'idle', step: 0, section: null, selected: [], taken: new Set(), seats: [], locked: {}, run: 0, started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, captcha: '', captchaError: '', discount: 0, delivery: 'venue', payment: 'card', agreed: false, queue: 0, venueChoice: {}, category: 'all' };
 let clock, competitors, queueTimer;
 const provider = () => providers[state.provider];
 const event = () => eventOf(provider());
@@ -15,6 +15,7 @@ const TERMS = {
   train: { day: '출발일', session: '열차', item: '', schedule: '출발일과 열차', tag: '연습용 가상 열차', place: '열차', sub: '가상 열차', price: ['할인 선택', '어른', '연습용 할인 (10%)'] },
   bus: { day: '출발일', session: '배차', item: '', schedule: '출발일과 배차', tag: '연습용 가상 배차', place: '버스', sub: '가상 배차', price: ['할인 선택', '어른', '연습용 할인 (10%)'] },
   slot: { day: '이용일', session: '일정', item: '', schedule: '이용일', tag: '연습용 가상 일정', place: '장소', sub: '가상 일정', option: '항목', price: ['할인 선택', '일반', '연습용 할인 (10%)'] },
+  flight: { day: '탑승일', session: '구간', item: '', schedule: '탑승일', tag: '연습용 가상 항공편', place: '항공편', sub: '가상 항공편', option: '항공편', price: ['할인 선택', '성인', '연습용 할인 (10%)'] },
   movie: { day: '관람일', session: '상영 시간', item: '', schedule: '관람일과 상영 시간', tag: '연습용 가상 상영', place: '상영관', sub: '가상 상영', price: ['관람 인원/할인', '일반', '연습용 할인 (10%)'] },
 };
 const terms = () => ({ option: '상품', ...TERMS[event().kind || 'show'], ...event().terms });
@@ -70,8 +71,10 @@ function syncQuantity() {
   two.disabled = maxQuantity() < 2; if (two.disabled && $('quantity').value === '2') $('quantity').value = '1';
 }
 function renderTabs() {
-  const list = Object.values(providers);
-  $('provider-tabs').innerHTML = list.map(p => `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>↗</i></button>`).join('');
+  const list = Object.values(providers), card = p => `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>↗</i></button>`;
+  const chips = [{ id: 'all', label: '전체', n: list.length }, ...categories.map(c => ({ ...c, n: c.ids.length }))];
+  $('category-chips').innerHTML = chips.map(c => `<button data-category="${c.id}" class="${state.category === c.id ? 'selected' : ''}" aria-pressed="${state.category === c.id}">${c.label} <span>${c.n}</span></button>`).join('');
+  $('provider-tabs').innerHTML = categories.map(c => `<section class="provider-group" data-group="${c.id}" ${state.category === 'all' || state.category === c.id ? '' : 'hidden'}><h3>${c.label} <span>${c.ids.length}</span></h3><div class="provider-grid">${c.ids.map(id => card(providers[id])).join('')}</div></section>`).join('');
   $('provider-count').textContent = $('provider-total').textContent = list.length;
 }
 function renderProduct() {
@@ -82,7 +85,7 @@ function renderProduct() {
   $('product-brand').textContent = p.brand;
   $('provider-kind').textContent = p.kind;
   $('provider-description').textContent = p.description;
-  $('provider-source').href = p.sources[0];
+  $('provider-source').hidden = !p.sources.length; if (p.sources.length) $('provider-source').href = p.sources[0];
   $('product-mode').textContent = `${p.kind} 예매 연습 화면`;
   $('howto-flow').textContent = `${p.steps.join(' → ')}.`;
   $('date-note').textContent = `3초 후 연습용 ${p.kind} 예매창이 열립니다.`;
@@ -117,7 +120,7 @@ function releaseHold() { state.seatTime = null; state.discount = 0; state.holdSt
 async function start() {
   if (state.phase !== 'idle') return;
   clearTimers(); state.run++;
-  Object.assign(state, { phase: 'countdown', step: 0, selected: [], message: '', started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, discount: 0, delivery: initialDelivery(provider()), payment: paymentMethods(provider())[0][0], agreed: false, accessConfirmed: false, reviewConfirmed: false, captchaPassed: false, captchaError: '', option: null, memberCode: `WV${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`, memberError: '', difficulty: $('difficulty').value, quantity: Math.min(Number($('quantity').value), maxQuantity()), adjacent: $('adjacent').checked });
+  Object.assign(state, { phase: 'countdown', step: 0, selected: [], message: '', started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, discount: 0, delivery: initialDelivery(provider()), payment: paymentMethods(provider())[0][0], agreed: false, accessConfirmed: false, reviewConfirmed: false, captchaPassed: false, captchaError: '', option: null, memberCode: `${provider().codePrefix || 'WV'}${String(Math.floor(Math.random() * 1e6)).padStart(6, '0')}`, memberError: '', difficulty: $('difficulty').value, quantity: Math.min(Number($('quantity').value), maxQuantity()), adjacent: $('adjacent').checked });
   setSettingsLocked(true); const run = state.run;
   for (let i = 3; i > 0; i--) { $('book-button').textContent = `${i}초 후 예매창 열림`; await new Promise(resolve => setTimeout(resolve, 1000)); if (run !== state.run) return; }
   resetSeats(); state.started = performance.now();
@@ -148,7 +151,7 @@ function nextDisabled() {
 }
 function nextLabel() {
   if (state.phase === 'checking') return '확인 중…';
-  return { seats: provider().seatAction, option: provider().seatAction, membership: '확인하고 시작', handoff: '제휴 예매창 열기', fanclub: '선예매 입장', payment: '가상 결제 완료' }[kind()] || provider().nextAction;
+  return { seats: provider().seatAction, option: provider().seatAction, membership: '확인하고 시작', handoff: '제휴 예매창 열기', fanclub: provider().gate?.action || '선예매 입장', payment: '가상 결제 완료' }[kind()] || provider().nextAction;
 }
 function sidebar() {
   const date = currentDate(), t = totals();
@@ -213,10 +216,12 @@ function handoffStep() {
   return `${title('제휴 예매처로 넘어가는 흐름을 확인하세요.')}<div class="form-section"><div class="handoff-flow"><span>${provider().brand}</span><i>→</i><span>${partner.brand}</span></div><p>이 공연의 좌석 예매는 제휴 예매처에서 진행되는 상황을 연습합니다. 다음 단계부터 로컬 ${partner.name}형 연습창으로 바뀝니다.</p><p class="gray">실제 사이트로 이동하거나 계정을 연동하지 않습니다.</p>${checkbox('access-confirm', state.accessConfirmed, '제휴 예매창으로 전환되는 것을 확인했습니다.')}</div>`;
 }
 function fanclubStep() {
+  const g = provider().gate || {}, label = g.label || '멤버십 번호';
+  const rows = g.rows || [['사전 신청', '완료 (가상)'], ['선예매 매수', `${event().unit}당 1인 1매`], ['관람 조건', '멤버십 이름·예매자·관람자 일치 (연습 안내)']];
   const verify = state.accessConfirmed
-    ? '<p class="verified">✓ 선예매 인증이 완료되었습니다. 예매창으로 입장하세요.</p>'
-    : `<form id="member-form" class="verify-row"><input id="member-code" maxlength="8" autocomplete="off" spellcheck="false" placeholder="멤버십 번호 8자리" aria-label="멤버십 번호" aria-describedby="member-error"><button type="submit">인증하기</button></form><p id="member-error" class="captcha-error" role="alert">${state.memberError}</p>`;
-  return `${title('사전 신청 내역을 확인하고 멤버십 번호로 인증하세요.')}<div class="form-section"><div class="member-card"><small>FAN MEMBERSHIP · 연습용</small><b>연습 관객</b><span>멤버십 번호 <strong>${state.memberCode}</strong></span></div><dl class="fake-buyer"><div><dt>사전 신청</dt><dd>완료 (가상)</dd></div><div><dt>선예매 매수</dt><dd>${event().unit}당 1인 1매</dd></div><div><dt>관람 조건</dt><dd>멤버십 이름·예매자·관람자 일치 (연습 안내)</dd></div></dl>${verify}<p class="gray">실제 팬 플랫폼 계정·멤버십을 확인하지 않습니다.</p></div>`;
+    ? `<p class="verified">${g.verified || '✓ 선예매 인증이 완료되었습니다. 예매창으로 입장하세요.'}</p>`
+    : `<form id="member-form" class="verify-row"><input id="member-code" maxlength="8" autocomplete="off" spellcheck="false" placeholder="${label} 8자리" aria-label="${label}" aria-describedby="member-error"><button type="submit">인증하기</button></form><p id="member-error" class="captcha-error" role="alert">${state.memberError}</p>`;
+  return `${title(g.title || '사전 신청 내역을 확인하고 멤버십 번호로 인증하세요.')}<div class="form-section"><div class="member-card"><small>${g.card || 'FAN MEMBERSHIP · 연습용'}</small><b>연습 관객</b><span>${label} <strong>${state.memberCode}</strong></span></div><dl class="fake-buyer">${rows.map(([dt, dd]) => `<div><dt>${dt}</dt><dd>${dd}</dd></div>`).join('')}</dl>${verify}<p class="gray">${g.note || '실제 팬 플랫폼 계정·멤버십을 확인하지 않습니다.'}</p></div>`;
 }
 function reviewStep() {
   return `${title('예매 정보를 확인하세요.')}<div class="form-section">${summaryBox('예매 내용')}${buyer()}${checkbox('review-confirm', state.reviewConfirmed, '위 예매 정보를 확인했습니다.')}</div>`;
@@ -287,14 +292,17 @@ async function confirmSeats() {
   const option = kind() === 'option' ? currentOption() : null;
   if (kind() === 'option') {
     if (!option) return;
-    state.selected = autoAssign(state.seats, state.taken, state.quantity, state.adjacent, option.sections);
+    state.selected = provider().ordered && !state.adjacent
+      ? available().filter(s => option.sections.includes(s.section)).sort((a, b) => a.number - b.number).slice(0, state.quantity).map(s => s.id)
+      : autoAssign(state.seats, state.taken, state.quantity, state.adjacent, option.sections);
+    if (state.selected.length < state.quantity) state.selected = [];
     if (!state.selected.length) { state.message = provider().failMessage || '선택한 상품이 매진되었습니다. 다른 상품을 선택해주세요.'; renderWindow(); return; }
   }
   if (!selectionValid()) return;
   state.phase = 'checking'; const run = state.run; renderWindow();
   await new Promise(resolve => setTimeout(resolve, config().latency));
   if (run !== state.run || state.phase !== 'checking') return;
-  if (!selectionValid() || Math.random() < config().failure) {
+  if (!selectionValid() || Math.random() < config().failure * (option?.odds ?? 1)) {
     const message = option ? provider().failMessage || '다른 예매자가 먼저 구매했습니다. 다시 시도해주세요.' : '이미 선택된 좌석입니다. 다른 좌석을 선택해주세요.';
     state.selected.forEach(id => state.taken.add(id)); state.selected = []; state.failures++; state.phase = 'booking'; state.message = message;
     renderWindow(); window.alert(message);
@@ -345,6 +353,7 @@ function renderHistory() {
 }
 document.addEventListener('click', ev => {
   const target = ev.target.closest('button, [data-zone]'); if (!target || target.disabled) return;
+  if (target.dataset.category && state.phase === 'idle') { state.category = target.dataset.category; renderTabs(); renderProduct(); }
   if (target.dataset.provider && state.phase === 'idle') { state.provider = target.dataset.provider; renderProduct(); }
   if (target.dataset.view) { const practice = target.dataset.view === 'practice'; $('practice-view').hidden = !practice; $('history-view').hidden = practice; document.querySelectorAll('[data-view]').forEach(el => el.classList.toggle('active', el.dataset.view === target.dataset.view)); }
   if (target.dataset.date && (state.phase === 'idle' || kind() === 'date' && state.phase === 'booking')) changeDate(target.dataset.date);

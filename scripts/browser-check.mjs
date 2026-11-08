@@ -225,7 +225,7 @@ try {
     });
   }
   await page.selectOption('#venue', 'ballpark');
-  assert.equal(await page.locator('#venue option').count(), 5);
+  assert.equal(await page.locator('#venue option').count(), 9);
   await page.click('button[data-provider="timeticket"]'); assert.equal(await page.locator('#venue-label').isHidden(), true, 'auto-assign providers keep their venue');
   // Train, cinema and football providers: their own seat naming and layouts.
   const pickSeat = (zone, seat, count, label) => async p => {
@@ -268,6 +268,25 @@ try {
   await slotFlow('catchtable', /방문 시간/, { start: async p => assert.ok((await dialogBox(p)).width <= 440), review: async p => assert.match(await summary(p), /점심 12:00/) });
   await slotFlow('seoulyeyak', /빈 코트/, { review: async p => assert.match(await summary(p), /06:00~08:00 · \d+번 코트/) });
   await slotFlow('eplus', /추첨/, { payment: async p => assert.match(await methods(p), /편의점 결제/) });
+  await completeFlow(page, 'sac', { pick: async p => { await p.screenshot({ path: 'artifacts/venue-sac-opera.png' }); await reservedPick('sacOpera')(p); } });
+  await completeFlow(page, 'sac', { venue: 'sacConcert', pick: reservedPick('sacConcert') });
+  await completeFlow(page, 'lgart', { start: async p => assert.equal(await p.locator('#venue-label').isHidden(), true), pick: reservedPick('lgart') });
+  await completeFlow(page, 'lottecinema', { venue: 'lotteSuper', pick: reservedPick('lotteSuper') });
+  await completeFlow(page, 'cpkleague', { pick: async p => { await p.screenshot({ path: 'artifacts/venue-kleague.png' }); await reservedPick('kleagueSeoul')(p); } });
+  await completeFlow(page, 'tlbaseball', { venue: 'gwangju', pick: async p => { await p.screenshot({ path: 'artifacts/venue-gwangju.png' }); await reservedPick('gwangju')(p); } });
+  await completeFlow(page, 'nolps', { venue: 'suwon', start: async p => assert.match(await p.locator('.summary-show').textContent(), /수원 KT위즈파크/), pick: reservedPick('suwon') });
+  await completeFlow(page, 'ticketmaster', { start: async p => assert.match(await p.locator('.member-card').textContent(), /프리세일 코드 VF\d{6}/), pick: reservedPick('usArena') });
+  await slotFlow('festival', /입장번호/, { review: async p => assert.match(await summary(p), /스탠딩 A구역 입장번호 \d+번/) });
+  await slotFlow('jejuair', /특가 좌석/, { review: async p => assert.match(await summary(p), /7C901 07:00 → 08:10 · 탑승객 \d+/) });
+  await slotFlow('snkrs', /드로우/, { review: async p => assert.match(await summary(p), /240mm/) });
+  await slotFlow('fansign', /당첨 확률/, { payment: async p => assert.match(await p.locator('.summary-total').textContent(), /18,000/) });
+  // Main screen categories: baseball sites live in their own group.
+  await page.click('[data-category="baseball"]');
+  assert.equal(await page.locator('.provider-group:visible').count(), 1);
+  assert.equal(await page.locator('.provider-group:visible button[data-provider]').count(), 5);
+  await page.screenshot({ path: 'artifacts/category-baseball.png' });
+  await page.click('[data-category="all"]');
+  assert.equal(await page.locator('.provider-group:visible').count(), 7);
   // Keyboard: a focused zone opens with Enter.
   await page.click('button[data-provider="nol"]'); await page.selectOption('#venue', 'arena');
   await page.click('#book-button'); await page.waitForSelector('#next-step'); await page.click('#next-step');
@@ -291,10 +310,10 @@ try {
   const denied = await browser.newPage();
   await denied.addInitScript(() => { Storage.prototype.getItem = () => { throw new Error('blocked'); }; Storage.prototype.setItem = () => { throw new Error('blocked'); }; });
   await denied.goto(`http://127.0.0.1:${port}`);
-  assert.equal(await denied.locator('button[data-provider]').count(), 27);
+  assert.equal(await denied.locator('button[data-provider]').count(), 36);
   assert.equal(await denied.locator('#account-button').isHidden(), true, 'login hidden without Supabase config');
   assert.match(await (await fetch(`http://127.0.0.1:${port}/config.js`)).text(), /supabaseConfig = null/);
   for (const path of ['/.git/config', '/package.json', '/app.js/../../.git/config']) assert.equal((await fetch(`http://127.0.0.1:${port}${path}`)).status, 404);
   assert.deepEqual(errors, []);
-  console.log('PASS: all 27 provider flows (postseason, bus cabins, slot bookings, lottery, train cars, cinema halls, A-match, membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, real-venue maps, zone keyboard access, mobile, blocked storage');
+  console.log('PASS: all 36 provider flows (categories, classical halls, K League, Verified Fan code, standing entry numbers, flight fares, draws, postseason, bus cabins, slot bookings, lottery, train cars, cinema halls, A-match, membership, handoff, fan-club, review, auto-assign, dynamic pricing, mixed grades), queue, CAPTCHA retry, date changes, seat concurrency, scattered/adjacent selection, discount/shipping totals, payment agreement, history, Escape cleanup, real-venue maps, zone keyboard access, mobile, blocked storage');
 } finally { await browser?.close(); server.kill(); }

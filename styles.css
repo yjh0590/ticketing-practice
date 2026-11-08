@@ -233,3 +233,33 @@ body[data-event=park] .product-poster{background:#21452a;color:#e6f3df}
 body[data-event=dining] .product-poster{background:#2a1a12;color:#f5dcc6}
 body[data-event=court] .product-poster{background:#0b4f7a;color:#e3f3ff}
 body[data-event=japan] .product-poster{background:#d6001c;color:#fff}
+/* Main screen categories */
+.category-chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 16px}
+.category-chips button{border:1px solid #dfe2e8;background:#fff;border-radius:999px;padding:7px 13px;font-size:11px;color:#5b606c;cursor:pointer}
+.category-chips button span{color:#9aa0ab;margin-left:3px;font-size:10px}
+.category-chips button.selected{background:#22252b;color:#fff;border-color:#22252b}
+.category-chips button.selected span{color:#c9ccd4}
+.provider-tabs{display:block}
+.provider-group{margin:0 0 18px}
+.provider-group h3{font-size:12px;margin:0 0 8px;color:#3d424d;display:flex;align-items:center;gap:6px}
+.provider-group h3 span{font-size:10px;color:var(--site-accent);background:#efedff;border-radius:4px;padding:1px 6px;font-weight:400}
+.provider-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+@media(max-width:760px){.provider-grid{grid-template-columns:repeat(2,1fr)}.category-chips{flex-wrap:nowrap;overflow-x:auto;padding-bottom:4px}.category-chips button{flex-shrink:0}}
+#provider-source[hidden]{display:none}
+body[data-provider=sac],#booking-dialog[data-skin=sac]{--brand:#7a1f3d;--brand-light:#f8ecf0}
+body[data-provider=lgart],#booking-dialog[data-skin=lgart]{--brand:#a50034;--brand-light:#fbe9ee}
+body[data-provider=lottecinema],#booking-dialog[data-skin=lottecinema]{--brand:#ed1c24;--brand-light:#fdecec}
+body[data-provider=cpkleague],#booking-dialog[data-skin=cpkleague]{--brand:#346aff;--brand-light:#ecf1ff}
+body[data-provider=ticketmaster],#booking-dialog[data-skin=ticketmaster]{--brand:#026cdf;--brand-light:#e9f2fd}
+body[data-provider=festival],#booking-dialog[data-skin=festival]{--brand:#ff2e88;--brand-light:#ffeaf4}
+body[data-provider=jejuair],#booking-dialog[data-skin=jejuair]{--brand:#ff5000;--brand-light:#fff0e8}
+body[data-provider=snkrs],#booking-dialog[data-skin=snkrs]{--brand:#111111;--brand-light:#f1f1f1}
+body[data-provider=fansign],#booking-dialog[data-skin=fansign]{--brand:#8b5cf6;--brand-light:#f3eefe}
+body[data-provider=sac] .product-nav strong,body[data-provider=lgart] .product-nav strong,body[data-provider=lottecinema] .product-nav strong,body[data-provider=cpkleague] .product-nav strong,body[data-provider=ticketmaster] .product-nav strong,body[data-provider=festival] .product-nav strong,body[data-provider=jejuair] .product-nav strong,body[data-provider=snkrs] .product-nav strong,body[data-provider=fansign] .product-nav strong{color:var(--brand);font:900 20px Arial}
+body[data-event=classic] .product-poster{background:#2b1420;color:#f3dfc9}
+body[data-event=kleague] .product-poster{background:#a3121e;color:#fff}
+body[data-event=ustour] .product-poster{background:#0a2a5c;color:#dfeaff}
+body[data-event=festival] .product-poster{background:#ff2e88;color:#fff}
+body[data-event=flight] .product-poster{background:#ff5000;color:#fff}
+body[data-event=drop] .product-poster{background:#111;color:#f5f5f5}
+body[data-event=fansign] .product-poster{background:#8b5cf6;color:#fff}

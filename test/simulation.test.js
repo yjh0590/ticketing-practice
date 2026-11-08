@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSeats, validSelection, compete, hasAvailability, autoAssign, demandPrice, venues } from '../lib/simulation.js';
-import { providers, events, seatStep, gateStep } from '../lib/providers.js';
+import { providers, events, categories, seatStep, gateStep } from '../lib/providers.js';
 import { venueGroups, shapePoints, shapeCenter } from '../lib/venues.js';
 test('venue has unique seats and performance exclusions', () => {
  const seats = createSeats(() => .5);
@@ -109,4 +109,10 @@ test('seats across an aisle are never a pair (train cars, cinema blocks)', () =>
  seats.filter(s => s.section === 'C1' && s.row === 1 && s.number !== 2 && s.number !== 3).forEach(s => taken.add(s.id));
  assert.equal(hasAvailability(seats.filter(s => s.section === 'C1' && s.row === 1), taken, 2, true), false);
  assert.equal(venues.yongsan.seatLabel({ row: 16, number: 5 }, venues.yongsan.sections[2]), 'P열 29번');
+});
+test('every provider sits in exactly one main-screen category', () => {
+ const listed = categories.flatMap(c => c.ids);
+ assert.equal(new Set(listed).size, listed.length, 'no provider is listed twice');
+ assert.deepEqual([...listed].sort(), Object.keys(providers).sort());
+ assert.deepEqual(categories.find(c => c.id === 'baseball').ids.sort(), ['lotte', 'nc', 'nolps', 'ssg', 'tlbaseball']);
 });

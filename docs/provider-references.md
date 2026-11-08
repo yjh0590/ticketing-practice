@@ -62,6 +62,18 @@
 - 서울시 공공서비스예약: 체육시설 예약 시스템 ([서울 미디어허브](https://mediahub.seoul.go.kr/archives/2000926)). 테니스장 오픈 일정·요금은 확인하지 못해 가상 시설로 구성했습니다.
 - e+: 회원 전용, 1인 최대 2장, 선착순이 아닌 추첨 ([사카낙션 e+ 선행 안내](https://sakanaction.jp/feature/nf11_ticket_eplus)). 한국 거주자 결제·입금 기한은 확인하지 못했습니다. 낙선은 난이도별 실패 확률로 연습합니다.
 
+### 5차 추가 예매처·장소 (2026-11-08 확인)
+
+- 야구장 4곳: 수원 KT위즈파크 1만8700석·106/126블럭 ([스페셜타임스](https://www.specialtimes.co.kr/news/articleView.html?idxno=481841), [isplus](https://isplus.com/article/view/isp202611030245)), 대구 삼성라이온즈파크 팔각형 구조 ([서울신문](https://m.go.seoul.co.kr/news/2016/01/11/20160111011005)), 광주 챔피언스필드 K9·K8(응원단석)·K5·챔피언석·서프라이즈존 ([OSEN](https://www.osen.co.kr/article/G1109804238), [infogoodman](https://www.infogoodman.com/2026/03/gwangju-kia-champions-field-seat-guide-price.html)), 대전 한화생명볼파크 테이블석·외야 잔디존 ([OSEN](https://osen.co.kr/article/G1112507978), [파이낸셜뉴스](https://www.fnnews.com/news/202610060855120456)). 대구·수원·대전의 등급 이름과 응원석 위치는 확인하지 못해 일반적인 이름으로 구성했습니다.
+- 예술의전당: 오페라극장 약 2,200석, 1층(일반·BOX)과 2~4층 A·B·C블록, R~D석 ([예술의전당 오페라극장 안내](https://www.sac.or.kr/site/main/content/ticketPlaceOpera)). 콘서트홀 합창석 등급과 LG아트센터 배치는 확인하지 못해 단순화했습니다.
+- 롯데시네마 월드타워 수퍼플렉스: 세계 최대 스크린(2014), 좌석 수는 622석 → 295석 등 보도마다 다름 ([아주경제](https://www.ajunews.com/view/20230107184715149), [이투데이](https://www.etoday.co.kr/news/view/943391)).
+- 쿠팡플레이 K리그: 쿠팡플레이 앱 스마트 티켓 예매 ([freshnewinfo](https://www.freshnewinfo.com/entry/2026-K%EB%A6%AC%EA%B7%B8-12-%EA%B0%9C%EB%A7%89-%EC%98%88%EC%83%81-%EC%88%9C%EC%9C%84-%EC%A0%84%EB%A7%9D-%EC%98%88%EB%A7%A4-%EB%B0%A9%EB%B2%95%EB%B0%94%EB%80%90-%EC%A0%90-%EC%95%8C%EC%95%84%EB%B3%B4%EA%B8%B0), [전북일보](https://www.jjan.kr/article/20260119500181)). W·E·N·S석 등급과 위치는 추정입니다.
+- Ticketmaster Verified Fan: 사전 등록 → 선정자에게 코드 발송 → 프리세일, 비선정자 대기 명단 ([Consequence](https://consequence.net/2023/03/verified-fan-ticketmaster-how-to-register), [Ticketmaster 블로그](https://blog.ticketmaster.com/trans-siberian-orchestra-verifiedfan-presale-faq/), [NBC](https://www.nbcnews.com/pop-culture/ticketmaster-says-verified-fan-registration-doesnt-measure-fandom-fans-rcna81187)).
+- 페스티벌 스탠딩: 일반 예매 시 입장번호를 받고 당일 번호 순서로 입장하는 사례 ([wikidocs](https://wikidocs.net/blog/@mythos/27522/)). 워터밤의 배정 방식은 확인하지 못했고, 차수별 가격 구조만 확인 ([브런치](https://brunch.co.kr/@bokjinara/227)).
+- 제주항공 찜 특가: 국내선·국제선 순차 오픈, 오전 10시 오픈 사례, 특가는 기내 휴대품만 ([이투데이](https://www.etoday.co.kr/news/view/2258696), [데일리안](https://www.dailian.co.kr/news/view/1510846/)). 편명·운임·좌석 수는 연습용입니다.
+- 나이키 SNKRS 드로우: 응모 기간 뒤 무작위 선정, 당첨 시 결제 ([Nike 도움말](https://www.nike.com/help/a/launch-tips), [Hypebeast](https://hypebeast.com/2022/3/nike-snkrs-pass-2022-random-draw-program-update)). 한국 결제·사이즈 정책은 확인하지 못했습니다.
+- 팬사인회 응모: 공식 자료를 찾지 못해 '앨범 수량이 많을수록 당첨 확률이 높다'는 연습용 규칙으로 만든 일반형입니다.
+
 ## 직접 구현한 연습 요소
 
 두 모드의 창 배치, 색상, 구역 패널 위치는 PC 예매창 형태를 참고한 재현입니다.
@@ -80,7 +92,7 @@
 
 ## 검증
 
-브라우저 검증은 27개 예매처의 단계 흐름·창 레이아웃·결제수단 표시와, NOL·YES24 모드의 날짜 변경, 대기열, 보안문자 오입력/재입력,
+브라우저 검증은 36개 예매처의 단계 흐름·창 레이아웃·결제수단 표시와, NOL·YES24 모드의 날짜 변경, 대기열, 보안문자 오입력/재입력,
 좌석 선택·선점 실패, 일반 2매/연석 옵션, 이전 단계 이동, 할인·배송비 합산,
 최종 동의·가상 결제, 기록 보존, 창 중단, 모바일 폭을 대상으로 합니다.
 실제 예매처와의 화면 차이를 비교하는 검증은 수행하지 않았습니다.
