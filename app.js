@@ -73,12 +73,17 @@ function syncQuantity() {
 // Main screen: category cards first; a category opens its providers; a provider opens the practice stage.
 function renderTabs() {
   const list = Object.values(providers), current = categories.find(c => c.id === state.category);
-  $('category-chips').innerHTML = categories.map(c => `<button class="category-card glass" data-category="${c.id}" style="--tint:${c.tint}"><span class="category-count"><b>${c.ids.length}</b>곳</span><strong>${c.label}</strong><p>${c.desc}</p><span class="category-sites">${c.ids.map(id => `<i>${providers[id].name}</i>`).join('')}</span></button>`).join('');
-  $('provider-tabs').innerHTML = categories.map(c => `<div class="provider-grid" data-group="${c.id}" ${c === current ? '' : 'hidden'}>${c.ids.map(id => { const p = providers[id]; return `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>→</i></button>`; }).join('')}</div>`).join('');
+  $('category-chips').innerHTML = categories.map((c, n) => `<button class="category-card glass" data-category="${c.id}" style="--tint:${c.tint};--i:${n}"><span class="category-count"><b>${c.ids.length}</b>곳</span><strong>${c.label}</strong><p>${c.desc}</p><span class="category-sites">${c.ids.map(id => `<i>${providers[id].name}</i>`).join('')}</span></button>`).join('');
+  $('provider-tabs').innerHTML = categories.map(c => `<div class="provider-grid" data-group="${c.id}" ${c === current ? '' : 'hidden'}>${c.ids.map((id, n) => { const p = providers[id]; return `<button data-provider="${p.id}" aria-pressed="false" style="--i:${n}"><strong>${p.name}</strong><span>${p.kind}</span><i>→</i></button>`; }).join('')}</div>`).join('');
   $('category-chips').hidden = $('menu-heading').hidden = Boolean(current);
   $('menu-category').hidden = !current; $('provider-stage').hidden = !(current && state.picked);
   if (current) { $('menu-title').textContent = current.label; $('menu-desc').textContent = `${current.desc} · ${current.ids.length}곳`; }
   $('provider-count').textContent = $('provider-total').textContent = list.length;
+  // Each field has its own scene; cards rise in only when a menu opens, not on every provider click.
+  const scene = current?.id || 'home', fresh = document.body.dataset.scene !== scene;
+  $('category-chips').classList.toggle('fresh', fresh); $('provider-tabs').classList.toggle('fresh', fresh);
+  if (current && state.picked) document.body.dataset.picked = ''; else delete document.body.dataset.picked;
+  if (fresh) { document.body.dataset.scene = scene; const el = $('scene'); el.classList.remove('enter'); void el.offsetWidth; el.classList.add('enter'); }
 }
 // The security code defaults to what the real site does; 1 = only rare sales, so it shows up in 매크로급 only.
 function applyCaptchaDefault() {
