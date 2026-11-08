@@ -3,7 +3,7 @@ import { venueGroups, shapePath, shapeCenter } from './lib/venues.js';
 import { providers, categories, eventOf, calendar, paymentMethods, seatStep, gateStep, initialDelivery } from './lib/providers.js';
 const $ = id => document.getElementById(id);
 const STORAGE_KEY = 'frontrow-history-v1';
-const state = { provider: 'nol', date: eventOf(providers.nol).dates[0].id, phase: 'idle', step: 0, section: null, selected: [], taken: new Set(), seats: [], locked: {}, run: 0, started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, captcha: '', captchaError: '', discount: 0, delivery: 'venue', payment: 'card', agreed: false, queue: 0, venueChoice: {}, category: 'all' };
+const state = { provider: 'nol', date: eventOf(providers.nol).dates[0].id, phase: 'idle', step: 0, section: null, selected: [], taken: new Set(), seats: [], locked: {}, run: 0, started: 0, elapsed: 0, seatTime: null, firstClick: null, failures: 0, holdStarted: null, captcha: '', captchaError: '', discount: 0, delivery: 'venue', payment: 'card', agreed: false, queue: 0, venueChoice: {}, category: null, picked: false };
 let clock, competitors, queueTimer;
 const provider = () => providers[state.provider];
 const event = () => eventOf(provider());
@@ -70,11 +70,24 @@ function syncQuantity() {
   const two = $('quantity').querySelector('option[value="2"]');
   two.disabled = maxQuantity() < 2; if (two.disabled && $('quantity').value === '2') $('quantity').value = '1';
 }
+// Simple line icons for the category cards.
+const ICONS = {
+  show: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
+  baseball: '<circle cx="12" cy="12" r="9"/><path d="M6 5.8c2.2 2.6 2.2 9.8 0 12.4M18 5.8c-2.2 2.6-2.2 9.8 0 12.4"/>',
+  sports: '<circle cx="12" cy="12" r="9"/><path d="M12 7.5l4 2.9-1.5 4.7h-5L8 10.4z"/>',
+  travel: '<path d="M3 15l18-6-18-6 3.5 6zM6.5 9H13"/><path d="M4 21h16"/>',
+  movie: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M7 5v14M17 5v14M3 9.5h4M3 14.5h4M17 9.5h4M17 14.5h4"/>',
+  reserve: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4M8 14h3"/>',
+  draw: '<path d="M4 7h16v4a2 2 0 0 0 0 4v4H4v-4a2 2 0 0 0 0-4z"/><path d="M14 7v12" stroke-dasharray="2 2"/>',
+};
+// Main screen: category cards first; a category opens its providers; a provider opens the practice stage.
 function renderTabs() {
-  const list = Object.values(providers), card = p => `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>↗</i></button>`;
-  const chips = [{ id: 'all', label: '전체', n: list.length }, ...categories.map(c => ({ ...c, n: c.ids.length }))];
-  $('category-chips').innerHTML = chips.map(c => `<button data-category="${c.id}" class="${state.category === c.id ? 'selected' : ''}" aria-pressed="${state.category === c.id}">${c.label} <span>${c.n}</span></button>`).join('');
-  $('provider-tabs').innerHTML = categories.map(c => `<section class="provider-group" data-group="${c.id}" ${state.category === 'all' || state.category === c.id ? '' : 'hidden'}><h3>${c.label} <span>${c.ids.length}</span></h3><div class="provider-grid">${c.ids.map(id => card(providers[id])).join('')}</div></section>`).join('');
+  const list = Object.values(providers), current = categories.find(c => c.id === state.category);
+  $('category-chips').innerHTML = categories.map(c => `<button class="category-card glass" data-category="${c.id}" style="--tint:${c.tint}"><span class="category-icon"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONS[c.id]}</svg></span><strong>${c.label}</strong><p>${c.desc}</p><small>${c.ids.slice(0, 3).map(id => providers[id].name).join(' · ')}${c.ids.length > 3 ? ' 외' : ''}</small><span class="category-count">${c.ids.length}</span></button>`).join('');
+  $('provider-tabs').innerHTML = categories.map(c => `<div class="provider-grid" data-group="${c.id}" ${c === current ? '' : 'hidden'}>${c.ids.map(id => { const p = providers[id]; return `<button data-provider="${p.id}" aria-pressed="false"><strong>${p.name}</strong><span>${p.kind}</span><i>↗</i></button>`; }).join('')}</div>`).join('');
+  $('category-chips').hidden = $('menu-heading').hidden = Boolean(current);
+  $('menu-category').hidden = !current; $('provider-stage').hidden = !(current && state.picked);
+  if (current) { $('menu-title').textContent = current.label; $('menu-desc').textContent = `${current.desc} · ${current.ids.length}곳`; $('menu-category').style.setProperty('--tint', current.tint); }
   $('provider-count').textContent = $('provider-total').textContent = list.length;
 }
 function renderProduct() {
@@ -87,7 +100,7 @@ function renderProduct() {
   $('provider-description').textContent = p.description;
   $('provider-source').hidden = !p.sources.length; if (p.sources.length) $('provider-source').href = p.sources[0];
   $('product-mode').textContent = `${p.kind} 예매 연습 화면`;
-  $('howto-flow').textContent = `${p.steps.join(' → ')}.`;
+  $('howto-flow').textContent = state.picked && state.category ? `${p.steps.join(' → ')}.` : '일정 → 좌석(또는 회차·시험장·사이즈) → 확인 → 가상 결제.';
   $('date-note').textContent = `3초 후 연습용 ${p.kind} 예매창이 열립니다.`;
   $('event-title').textContent = e.title; $('event-sub').textContent = `${terms().sub} · ${place().name}`;
   [['poster-top', 0], ['poster-main', 1]].forEach(([id, i]) => { $(id).innerHTML = e.poster[i]; });
@@ -353,8 +366,15 @@ function renderHistory() {
 }
 document.addEventListener('click', ev => {
   const target = ev.target.closest('button, [data-zone]'); if (!target || target.disabled) return;
-  if (target.dataset.category && state.phase === 'idle') { state.category = target.dataset.category; renderTabs(); renderProduct(); }
-  if (target.dataset.provider && state.phase === 'idle') { state.provider = target.dataset.provider; renderProduct(); }
+  if (target.dataset.category && state.phase === 'idle') {
+    state.category = target.dataset.category; state.picked = providers[state.provider].category === state.category;
+    renderTabs(); renderProduct(); window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (target.id === 'menu-back' && state.phase === 'idle') { state.category = null; renderTabs(); renderProduct(); }
+  if (target.dataset.provider && state.phase === 'idle') {
+    const first = !state.picked; state.provider = target.dataset.provider; state.picked = true; renderTabs(); renderProduct();
+    if (first) $('provider-stage').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
   if (target.dataset.view) { const practice = target.dataset.view === 'practice'; $('practice-view').hidden = !practice; $('history-view').hidden = practice; document.querySelectorAll('[data-view]').forEach(el => el.classList.toggle('active', el.dataset.view === target.dataset.view)); }
   if (target.dataset.date && (state.phase === 'idle' || kind() === 'date' && state.phase === 'booking')) changeDate(target.dataset.date);
   if (target.dataset.zone && kind() === 'seats' && state.phase === 'booking') { state.section = target.dataset.zone; renderWindow(); }

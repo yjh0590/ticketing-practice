@@ -3,6 +3,16 @@ import { spawn } from 'node:child_process';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 import { venues } from '../lib/venues.js';
+import { categories } from '../lib/providers.js';
+// Providers live inside category menus: open the right category, then the provider card.
+async function openProvider(page, id) {
+  const card = page.locator(`button[data-provider="${id}"]`);
+  if (!(await card.isVisible())) {
+    if (await page.locator('#menu-back').isVisible()) await page.click('#menu-back');
+    await page.click(`[data-category="${categories.find(c => c.ids.includes(id)).id}"]`);
+  }
+  await card.click();
+}
 
 const port = 5198;
 const server = spawn(process.execPath, ['scripts/serve.mjs'], { env: { ...process.env, PORT: String(port), SUPABASE_URL: '', SUPABASE_ANON_KEY: '' }, stdio: 'pipe', windowsHide: true });
@@ -11,7 +21,7 @@ const stepKind = page => page.locator('.booking-main').getAttribute('data-step-k
 const currentStep = page => page.evaluate(() => [...document.querySelectorAll('.booking-steps li')].findIndex(li => li.classList.contains('current')));
 // Walks any provider flow to the result dialog, running per-step checks along the way.
 async function completeFlow(page, id, checks = {}) {
-  await page.click(`button[data-provider="${id}"]`);
+  await openProvider(page, id);
   if (checks.venue) await page.selectOption('#venue', checks.venue);
   await page.click('#book-button'); await page.waitForSelector('#next-step');
   await checks.start?.(page);
@@ -51,6 +61,10 @@ try {
   await page.goto(`http://127.0.0.1:${port}`);
   await mkdir('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/desktop.png', fullPage: true });
+  assert.equal(await page.locator('.category-card').count(), 7, 'home shows only the category menu');
+  assert.equal(await page.locator('#provider-stage').isHidden(), true);
+  await openProvider(page, 'nol');
+  assert.equal(await page.locator('#provider-stage').isVisible(), true);
   await page.selectOption('#difficulty', 'easy');
   await page.selectOption('#quantity', '2');
   await page.click('[data-calendar="product"][data-date="2026-12-13"]');
@@ -106,7 +120,7 @@ try {
   await page.click('[data-view="history"]');
   assert.equal(await page.locator('.history-row').count(), 1);
   await page.click('[data-view="practice"]');
-  await page.click('button[data-provider="yes24"]');
+  await openProvider(page, 'yes24');
   await page.uncheck('#use-queue'); await page.uncheck('#use-captcha');
   await page.selectOption('#difficulty', 'easy');
   await page.selectOption('#quantity', '2'); await page.check('#adjacent');
@@ -154,7 +168,7 @@ try {
   assert.match(await page.locator('#result-description').textContent(), /KREAM/);
   // Fan-club pre-sale: one ticket per person, NOL-type window after verification.
   await page.selectOption('#quantity', '2');
-  await page.click('button[data-provider="weverse"]');
+  await openProvider(page, 'weverse');
   assert.equal(await page.locator('#quantity').inputValue(), '1');
   assert.equal(await page.locator('#quantity option[value="2"]').isDisabled(), true);
   await completeFlow(page, 'weverse', {
@@ -163,7 +177,7 @@ try {
   });
   const ballpark = async p => { assert.equal(await p.locator('.venue-overview.ballpark').count(), 1); await p.click('.zone[data-zone="B1"] text'); await p.click('[data-seat="B1-8-11"]'); };
   // SSG: mixed grades in one payment (table + cheering seats).
-  await page.click('button[data-provider="ssg"]'); await page.selectOption('#quantity', '2');
+  await openProvider(page, 'ssg'); await page.selectOption('#quantity', '2');
   await completeFlow(page, 'ssg', {
     date: async p => assert.match(await p.locator('.date-cards').textContent(), /03\.27/),
     pick: async p => { await p.click('.zone[data-zone="T1"] text'); await p.click('[data-seat="T1-4-1"]'); await p.click('#all-sections'); await p.click('.zone[data-zone="B1"] text'); await p.click('[data-seat="B1-8-11"]'); },
@@ -192,7 +206,7 @@ try {
   await page.click('[data-view="history"]');
   assert.equal(await page.locator('.history-row').count(), 13);
   await page.click('[data-view="practice"]');
-  await page.click('button[data-provider="yes24"]');
+  await openProvider(page, 'yes24');
   // A failure after clicking seat completion must return to the seat step.
   await page.selectOption('#difficulty', 'normal'); await page.selectOption('#quantity', '1');
   await page.click('#book-button'); await page.waitForSelector('#next-step');
@@ -226,7 +240,7 @@ try {
   }
   await page.selectOption('#venue', 'ballpark');
   assert.equal(await page.locator('#venue option').count(), 9);
-  await page.click('button[data-provider="timeticket"]'); assert.equal(await page.locator('#venue-label').isHidden(), true, 'auto-assign providers keep their venue');
+  await openProvider(page, 'timeticket'); assert.equal(await page.locator('#venue-label').isHidden(), true, 'auto-assign providers keep their venue');
   // Train, cinema and football providers: their own seat naming and layouts.
   const pickSeat = (zone, seat, count, label) => async p => {
     await p.click(`.zone[data-zone="${zone}"] text`); assert.equal(await p.locator('[data-seat]').count(), count, zone);
@@ -238,7 +252,7 @@ try {
     review: async p => assert.match(await p.locator('.summary-info').textContent(), /8호차 14C/),
   });
   await completeFlow(page, 'cgv', { venue: 'yongsan', pick: async p => { await p.screenshot({ path: 'artifacts/venue-yongsan.png' }); await pickSeat('R', 'R-16-5', 96, 'P열 29번')(p); }, price: async p => assert.match(await p.locator('.price-table').textContent(), /P열 29번.*22,000/) });
-  await page.click('button[data-provider="megabox"]'); assert.equal(await page.locator('#venue option').count(), 2);
+  await openProvider(page, 'megabox'); assert.equal(await page.locator('#venue option').count(), 2);
   await completeFlow(page, 'megabox', { pick: pickSeat('R', 'R-12-3', 48, 'L열 21번') });
   await completeFlow(page, 'playkfa', { pick: async p => { await p.screenshot({ path: 'artifacts/venue-kfa.png' }); await pickSeat('220', '220-6-13', 84, '2층 220구역 6열 13번')(p); }, price: async p => assert.match(await p.locator('.price-table').textContent(), /레드석/) });
   // Ten more providers: baseball/postseason maps, bus cabin, slot bookings, lottery.
@@ -281,14 +295,16 @@ try {
   await slotFlow('snkrs', /드로우/, { review: async p => assert.match(await summary(p), /240mm/) });
   await slotFlow('fansign', /당첨 확률/, { payment: async p => assert.match(await p.locator('.summary-total').textContent(), /18,000/) });
   // Main screen categories: baseball sites live in their own group.
+  await page.click('#menu-back');
+  assert.equal(await page.locator('.category-card:visible').count(), 7);
+  await page.screenshot({ path: 'artifacts/home.png' });
   await page.click('[data-category="baseball"]');
-  assert.equal(await page.locator('.provider-group:visible').count(), 1);
-  assert.equal(await page.locator('.provider-group:visible button[data-provider]').count(), 5);
+  assert.equal(await page.locator('#provider-tabs button[data-provider]:visible').count(), 5);
+  assert.match(await page.locator('#menu-title').textContent(), /야구/);
   await page.screenshot({ path: 'artifacts/category-baseball.png' });
-  await page.click('[data-category="all"]');
-  assert.equal(await page.locator('.provider-group:visible').count(), 7);
+  await page.click('#menu-back');
   // Keyboard: a focused zone opens with Enter.
-  await page.click('button[data-provider="nol"]'); await page.selectOption('#venue', 'arena');
+  await openProvider(page, 'nol'); await page.selectOption('#venue', 'arena');
   await page.click('#book-button'); await page.waitForSelector('#next-step'); await page.click('#next-step');
   await page.focus('.zone[data-zone="B"]'); await page.keyboard.press('Enter');
   assert.equal(await page.locator('[data-seat]').count(), 96);
@@ -298,13 +314,15 @@ try {
   await mobile.goto(`http://127.0.0.1:${port}`);
   assert.equal(await mobile.evaluate(() => document.documentElement.scrollWidth <= innerWidth), true);
   await mobile.screenshot({ path: 'artifacts/mobile.png', fullPage: true });
+  await mobile.screenshot({ path: 'artifacts/mobile-home.png', fullPage: true });
+  await openProvider(mobile, 'nol');
   await mobile.uncheck('#use-queue'); await mobile.uncheck('#use-captcha');
   await mobile.click('#book-button'); await mobile.waitForSelector('#next-step'); await mobile.click('#next-step');
   await mobile.click('.zone[data-zone="D"] text');
   assert.equal(await mobile.locator('[data-seat]').count(), 96);
   assert.equal(await mobile.locator('#booking-dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
   await mobile.click('#close-booking');
-  await mobile.click('button[data-provider="coupang"]'); await mobile.click('#book-button'); await mobile.waitForSelector('#access-confirm');
+  await openProvider(mobile, 'coupang'); await mobile.click('#book-button'); await mobile.waitForSelector('#access-confirm');
   assert.equal(await mobile.locator('#booking-dialog').evaluate(el => el.scrollWidth <= el.clientWidth + 1), true);
   await mobile.screenshot({ path: 'artifacts/mobile-coupang.png' });
   const denied = await browser.newPage();
